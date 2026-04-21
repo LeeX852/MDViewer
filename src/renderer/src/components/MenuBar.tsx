@@ -91,12 +91,23 @@ export default function MenuBar({
   }, [])
 
   const toggleMenu = (menuLabel: string) => {
-    setOpenMenu(prev => prev === menuLabel ? null : menuLabel)
+    console.log('[MenuBar] toggleMenu called for:', menuLabel)
+    setOpenMenu(prev => {
+      const newValue = prev === menuLabel ? null : menuLabel
+      console.log('[MenuBar] openMenu changing from:', prev, 'to:', newValue)
+      return newValue
+    })
   }
 
   const handleItemAction = (action?: () => void) => {
+    console.log('[MenuBar] handleItemAction called, action exists:', !!action)
     closeMenu()
-    action?.()
+    if (action) {
+      console.log('[MenuBar] calling action...')
+      action()
+    } else {
+      console.log('[MenuBar] no action to call')
+    }
   }
 
   const insertHeading = (level: number) => {

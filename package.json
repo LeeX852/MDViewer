@@ -2,6 +2,12 @@
   "name": "mdviewer",
   "version": "0.1.0",
   "description": "A Typora-like Markdown editor built with Electron + React",
+  "author": "LeeX",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LeeX/mdviewer"
+  },
   "main": "./out/main/index.js",
   "type": "module",
   "scripts": {

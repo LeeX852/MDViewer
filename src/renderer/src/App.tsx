@@ -14,6 +14,15 @@ import type { Editor as TiptapEditor } from '@tiptap/react'
 type ThemeMode = 'dark' | 'light'
 
 export default function App() {
+  // 检查 preload API 是否可用
+  useEffect(() => {
+    console.log('[App] Checking window.api availability...')
+    console.log('[App] window.api exists:', !!window.api)
+    if (window.api) {
+      console.log('[App] window.api methods:', Object.keys(window.api))
+    }
+  }, [])
+
   const [editorInstance, setEditorInstance] = useState<TiptapEditor | null>(null)
 
   const {
@@ -85,8 +94,11 @@ export default function App() {
   }, [setContent, setFilePath, markSaved])
 
   const handleOpenFile = useCallback(async () => {
+    console.log('[App] handleOpenFile called')
     try {
+      console.log('[App] calling ipc.openFile()...')
       const result = await ipc.openFile()
+      console.log('[App] ipc.openFile() result:', result)
       if (result) {
         setContent(result.content)
         setFilePath(result.filePath)
@@ -97,12 +109,16 @@ export default function App() {
   }, [setContent, setFilePath])
 
   const handleSave = useCallback(async () => {
+    console.log('[App] handleSave called, filePath:', filePath)
     try {
       if (filePath) {
+        console.log('[App] calling ipc.saveFile()...')
         await ipc.saveFile(filePath, content)
         markSaved()
       } else {
+        console.log('[App] no filePath, calling ipc.saveFileAs()...')
         const savedPath = await ipc.saveFileAs(content)
+        console.log('[App] saveFileAs result:', savedPath)
         if (savedPath) {
           setFilePath(savedPath)
           markSaved()
@@ -114,8 +130,11 @@ export default function App() {
   }, [filePath, content, markSaved, setFilePath])
 
   const handleSaveAs = useCallback(async () => {
+    console.log('[App] handleSaveAs called')
     try {
+      console.log('[App] calling ipc.saveFileAs()...')
       const savedPath = await ipc.saveFileAs(content)
+      console.log('[App] saveFileAs result:', savedPath)
       if (savedPath) {
         setFilePath(savedPath)
         markSaved()
@@ -126,7 +145,10 @@ export default function App() {
   }, [content, markSaved, setFilePath])
 
   const handleOpenFolder = useCallback(async () => {
+    console.log('[App] handleOpenFolder called')
+    console.log('[App] window.api available:', !!window.api)
     const folder = await window.api.openFolder()
+    console.log('[App] openFolder result:', folder)
     if (folder) {
       setRootDir(folder)
       const tree = await window.api.readDirTree(folder)

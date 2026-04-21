@@ -92,7 +92,7 @@
 ### 安装方法
 
 #### 方法1：下载安装包
-1. 从 [Releases](https://github.com/yourusername/mdviewer/releases) 页面下载最新版本
+1. 从 [Releases](https://github.com/LeeX/mdviewer/releases) 页面下载最新版本
 2. 运行 `MDViewer Setup 0.1.0.exe` 安装程序
 3. 按提示完成安装
 
@@ -104,7 +104,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/mdviewer.git
+git clone https://github.com/LeeX/mdviewer.git
 cd mdviewer
 
 # 安装依赖
@@ -153,13 +153,13 @@ mdviewer/
 
 ## 开发计划
 
-- [x] 基础 Markdown 编辑
+- [x] 础 Markdown 编辑
 - [x] 实时预览
 - [x] 暗色/亮色主题
 - [x] 文件管理
 - [x] 快捷键支持
 - [x] 数学公式支持
-- [x] Mermaid 图表
+- [x] Mermaid 图图
 - [ ] 图片粘贴上传
 - [ ] 多标签页支持
 - [ ] 导出 PDF/HTML
@@ -168,7 +168,7 @@ mdviewer/
 
 ## 问题反馈
 
-如果你在使用过程中遇到任何问题，欢迎提交 [Issue](https://github.com/yourusername/mdviewer/issues)。
+如果你在使用过程中遇到任何问题，欢迎提交 [Issue](https://github.com/LeeX/mdviewer/issues)。
 
 ## 贡献指南
 
@@ -191,5 +191,5 @@ mdviewer/
 
 ---
 
-**作者**: MDViewer Team  
-**版权**: © 2026 MDViewer. All rights reserved.
+**作者**: LeeX  
+**版权**: © 2026 LeeX. All rights reserved.

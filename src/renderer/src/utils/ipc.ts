@@ -16,8 +16,13 @@ function ensureAPI(): typeof window.api {
 
 export const ipc = {
   async openFile(): Promise<FileResult | null> {
+    console.log('[IPC] openFile called')
+    console.log('[IPC] window.api available:', !!window.api)
     try {
-      return await ensureAPI().openFile()
+      console.log('[IPC] calling window.api.openFile()...')
+      const result = await ensureAPI().openFile()
+      console.log('[IPC] window.api.openFile() result:', result)
+      return result
     } catch (error) {
       console.error('[IPC] openFile failed:', error)
       throw error
@@ -34,8 +39,13 @@ export const ipc = {
   },
 
   async saveFile(filePath: string, content: string): Promise<boolean> {
+    console.log('[IPC] saveFile called, filePath:', filePath)
+    console.log('[IPC] window.api available:', !!window.api)
     try {
-      return await ensureAPI().saveFile(filePath, content)
+      console.log('[IPC] calling window.api.saveFile()...')
+      const result = await ensureAPI().saveFile(filePath, content)
+      console.log('[IPC] window.api.saveFile() result:', result)
+      return result
     } catch (error) {
       console.error('[IPC] saveFile failed:', error)
       throw error
@@ -43,8 +53,13 @@ export const ipc = {
   },
 
   async saveFileAs(content: string): Promise<string | null> {
+    console.log('[IPC] saveFileAs called')
+    console.log('[IPC] window.api available:', !!window.api)
     try {
-      return await ensureAPI().saveFileAs(content)
+      console.log('[IPC] calling window.api.saveFileAs()...')
+      const result = await ensureAPI().saveFileAs(content)
+      console.log('[IPC] window.api.saveFileAs() result:', result)
+      return result
     } catch (error) {
       console.error('[IPC] saveFileAs failed:', error)
       throw error

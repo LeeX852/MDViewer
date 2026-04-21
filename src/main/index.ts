@@ -7,8 +7,8 @@ let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
   const preloadPath = app.isPackaged
-    ? join(process.resourcesPath, 'app.asar', 'out', 'preload', 'index.js')
-    : join(__dirname, '../preload/index.js')
+    ? join(process.resourcesPath, 'app.asar', 'out', 'preload', 'index.cjs')
+    : join(__dirname, '../preload/index.cjs')
 
   console.log('[Main] Preload path:', preloadPath)
   console.log('[Main] Is packaged:', app.isPackaged)
@@ -35,7 +35,9 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    console.log('[Main] ready-to-show event fired')
     mainWindow!.show()
+    console.log('[Main] window shown, isVisible:', mainWindow!.isVisible())
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -56,21 +58,29 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('file:open', async () => {
+    console.log('[Main] file:open handler called')
     try {
       const options: Electron.OpenDialogOptions = {
+        title: '打开文件',
         properties: ['openFile'],
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
       }
-      const result = mainWindow
-        ? await dialog.showOpenDialog(mainWindow, options)
-        : await dialog.showOpenDialog(options)
-      if (result.canceled || result.filePaths.length === 0) return null
+      console.log('[Main] calling dialog.showOpenDialog...')
+      // 不附加到窗口，直接显示对话框（Windows兼容性更好）
+      const result = await dialog.showOpenDialog(options)
+      console.log('[Main] dialog.showOpenDialog result:', JSON.stringify(result))
+      if (result.canceled || result.filePaths.length === 0) {
+        console.log('[Main] dialog canceled or no files selected')
+        return null
+      }
 
       const filePath = result.filePaths[0]
+      console.log('[Main] selected file:', filePath)
       const content = await readFile(filePath, 'utf-8')
+      console.log('[Main] file content read successfully, length:', content.length)
       return { filePath, content }
     } catch (err) {
-      console.error('file:open error:', err)
+      console.error('[Main] file:open error:', err)
       return null
     }
   })
@@ -86,19 +96,28 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('file:save-as', async (_event, content: string) => {
+    console.log('[Main] file:save-as handler called')
     try {
       const options: Electron.SaveDialogOptions = {
-        filters: [{ name: 'Markdown', extensions: ['md'] }]
+        title: '另存为',
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+        defaultPath: 'untitled.md'
       }
-      const result = mainWindow
-        ? await dialog.showSaveDialog(mainWindow, options)
-        : await dialog.showSaveDialog(options)
-      if (result.canceled || !result.filePath) return null
+      console.log('[Main] calling dialog.showSaveDialog...')
+      // 不附加到窗口，直接显示对话框（Windows兼容性更好）
+      const result = await dialog.showSaveDialog(options)
+      console.log('[Main] dialog.showSaveDialog result:', JSON.stringify(result))
+      if (result.canceled || !result.filePath) {
+        console.log('[Main] dialog canceled or no path selected')
+        return null
+      }
 
+      console.log('[Main] saving to:', result.filePath)
       await writeFile(result.filePath, content, 'utf-8')
+      console.log('[Main] file saved successfully')
       return result.filePath
     } catch (err) {
-      console.error('file:save-as error:', err)
+      console.error('[Main] file:save-as error:', err)
       return null
     }
   })
@@ -114,17 +133,24 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('dir:open-folder', async () => {
+    console.log('[Main] dir:open-folder handler called')
     try {
       const options: Electron.OpenDialogOptions = {
+        title: '打开文件夹',
         properties: ['openDirectory']
       }
-      const result = mainWindow
-        ? await dialog.showOpenDialog(mainWindow, options)
-        : await dialog.showOpenDialog(options)
-      if (result.canceled || result.filePaths.length === 0) return null
+      console.log('[Main] calling dialog.showOpenDialog for folder...')
+      // 不附加到窗口，直接显示对话框（Windows兼容性更好）
+      const result = await dialog.showOpenDialog(options)
+      console.log('[Main] dialog.showOpenDialog result:', JSON.stringify(result))
+      if (result.canceled || result.filePaths.length === 0) {
+        console.log('[Main] dialog canceled or no folder selected')
+        return null
+      }
+      console.log('[Main] selected folder:', result.filePaths[0])
       return result.filePaths[0]
     } catch (err) {
-      console.error('dir:open-folder error:', err)
+      console.error('[Main] dir:open-folder error:', err)
       return null
     }
   })
@@ -160,35 +186,40 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('window:minimize', () => {
-    if (mainWindow) {
-      mainWindow.minimize()
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (win) {
+      win.minimize()
     }
     return true
   })
   
   ipcMain.handle('window:maximize', () => {
-    if (mainWindow) {
-      if (mainWindow.isMaximized()) {
-        mainWindow.unmaximize()
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize()
       } else {
-        mainWindow.maximize()
+        win.maximize()
       }
     }
     return true
   })
   
   ipcMain.handle('window:close', () => {
-    if (mainWindow) {
-      mainWindow.close()
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (win) {
+      win.close()
     }
     return true
   })
   
   ipcMain.handle('window:is-maximized', () => {
-    return mainWindow ? mainWindow.isMaximized() : false
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    return win ? win.isMaximized() : false
   })
 
   ipcMain.handle('dialog:about', async () => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     const version = app.getVersion()
     const electronVersion = process.versions.electron
     const nodeVersion = process.versions.node
@@ -220,8 +251,8 @@ function registerIpcHandlers(): void {
       defaultId: 0
     }
     
-    if (mainWindow) {
-      await dialog.showMessageBox(mainWindow, options)
+    if (win) {
+      await dialog.showMessageBox(win, options)
     } else {
       await dialog.showMessageBox(options)
     }
