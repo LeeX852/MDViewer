@@ -1,6 +1,6 @@
 {
   "name": "mdviewer",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A Typora-like Markdown editor built with Electron + React",
   "author": "LeeX",
   "license": "MIT",
@@ -65,7 +65,11 @@
       "out/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
