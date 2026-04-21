@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
   openFile: (): Promise<{ filePath: string; content: string } | null> =>
@@ -16,23 +15,17 @@ const api = {
     ipcRenderer.invoke('dir:read-tree', dirPath),
   openFolder: (): Promise<string | null> =>
     ipcRenderer.invoke('dir:open-folder'),
-  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
-  maximizeWindow: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
-  closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
+  minimizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:maximize'),
+  closeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:close'),
   isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:is-maximized'),
-  showAbout: (): Promise<void> => ipcRenderer.invoke('dialog:about')
+  showAbout: (): Promise<boolean> => ipcRenderer.invoke('dialog:about')
 }
 
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore - dev mode fallback
-  window.electron = electronAPI
-  // @ts-ignore
-  window.api = api
+try {
+  contextBridge.exposeInMainWorld('api', api)
+  console.log('[Preload] API exposed via contextBridge')
+} catch (error) {
+  console.error('[Preload] Failed to expose API:', error)
+  throw error
 }

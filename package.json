@@ -12,6 +12,8 @@
     "dist": "electron-builder"
   },
   "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
     "@tiptap/extension-code-block-lowlight": "^2.11.5",
     "@tiptap/extension-highlight": "^2.11.5",
     "@tiptap/extension-image": "^2.11.5",
@@ -37,8 +39,6 @@
     "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
-    "@electron-toolkit/utils": "^4.0.0",
     "@rollup/rollup-win32-x64-msvc": "^4.60.2",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",

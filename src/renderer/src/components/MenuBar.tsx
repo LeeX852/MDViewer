@@ -61,6 +61,9 @@ export default function MenuBar({
   onToggleSourceMode
 }: MenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
+  const [isMaximized, setIsMaximized] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
 
   const closeMenu = useCallback(() => setOpenMenu(null), [])
@@ -75,6 +78,17 @@ export default function MenuBar({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [openMenu, closeMenu])
+
+  useEffect(() => {
+    const checkMaximized = async () => {
+      const maximized = await window.api.isMaximized()
+      setIsMaximized(maximized)
+    }
+    checkMaximized()
+    
+    const interval = setInterval(checkMaximized, 500)
+    return () => clearInterval(interval)
+  }, [])
 
   const toggleMenu = (menuLabel: string) => {
     setOpenMenu(prev => prev === menuLabel ? null : menuLabel)
@@ -109,7 +123,13 @@ export default function MenuBar({
         { label: '', separator: true },
         { label: '剪切', shortcut: 'Ctrl+X', action: () => { document.execCommand('cut') } },
         { label: '复制', shortcut: 'Ctrl+C', action: () => { document.execCommand('copy') } },
-        { label: '粘贴', shortcut: 'Ctrl+V', action: () => { editor?.chain().focus().run() } },
+        { label: '粘贴', shortcut: 'Ctrl+V', action: () => {
+          navigator.clipboard.readText().then(text => {
+            if (text) editor?.chain().focus().insertContent(text).run()
+          }).catch(() => {
+            document.execCommand('paste')
+          })
+        }},
         { label: '', separator: true },
         { label: '全选', shortcut: 'Ctrl+A', action: () => editor?.chain().focus().selectAll().run() },
         { label: '', separator: true },
@@ -190,8 +210,58 @@ export default function MenuBar({
     {
       label: '帮助',
       items: [
-        { label: '快捷键', action: () => window.open('https://github.com/mdviewer/app#shortcuts', '_blank') },
-        { label: '关于 MDViewer', action: () => window.api.showAbout() },
+        { label: '快捷键', action: () => setShowShortcuts(true) },
+        { label: '关于 MDViewer', action: () => setShowAbout(true) },
+      ]
+    }
+  ]
+
+  const shortcutGroups = [
+    {
+      title: '文件',
+      items: [
+        { label: '新建', shortcut: 'Ctrl+N' },
+        { label: '打开', shortcut: 'Ctrl+O' },
+        { label: '保存', shortcut: 'Ctrl+S' },
+        { label: '另存为', shortcut: 'Ctrl+Shift+S' },
+      ]
+    },
+    {
+      title: '编辑',
+      items: [
+        { label: '撤销', shortcut: 'Ctrl+Z' },
+        { label: '重做', shortcut: 'Ctrl+Shift+Z' },
+        { label: '剪切', shortcut: 'Ctrl+X' },
+        { label: '复制', shortcut: 'Ctrl+C' },
+        { label: '粘贴', shortcut: 'Ctrl+V' },
+        { label: '全选', shortcut: 'Ctrl+A' },
+      ]
+    },
+    {
+      title: '格式',
+      items: [
+        { label: '加粗', shortcut: 'Ctrl+B' },
+        { label: '斜体', shortcut: 'Ctrl+I' },
+        { label: '下划线', shortcut: 'Ctrl+U' },
+        { label: '删除线', shortcut: 'Ctrl+Shift+D' },
+        { label: '行内代码', shortcut: 'Ctrl+`' },
+        { label: '插入链接', shortcut: 'Ctrl+K' },
+      ]
+    },
+    {
+      title: '段落',
+      items: [
+        { label: '标题 1-6', shortcut: 'Ctrl+1~6' },
+        { label: '正文', shortcut: 'Ctrl+0' },
+      ]
+    },
+    {
+      title: '视图',
+      items: [
+        { label: '侧边栏', shortcut: 'Ctrl+\\' },
+        { label: '源码模式', shortcut: 'Ctrl+/' },
+        { label: '聚焦模式', shortcut: 'F8' },
+        { label: '打字机模式', shortcut: 'F9' },
       ]
     }
   ]
@@ -232,18 +302,81 @@ export default function MenuBar({
           </div>
         ))}
       </div>
-      <div className="menubar-center">{title}</div>
+      <div className="menubar-center" onDoubleClick={() => window.api.maximizeWindow()}>
+        <div className="menubar-center-content">{title}</div>
+      </div>
       <div className="menubar-right">
-        <button className="window-btn minimize" onClick={() => window.api.minimizeWindow()}>
+        <button className="window-btn minimize" onClick={() => {
+          console.log('Minimize button clicked, window.api:', window.api)
+          window.api.minimizeWindow().catch((err: any) => console.error('Minimize error:', err))
+        }}>
           ─
         </button>
-        <button className="window-btn maximize" onClick={() => window.api.maximizeWindow()}>
-          □
+        <button className="window-btn maximize" onClick={() => {
+          console.log('Maximize button clicked')
+          window.api.maximizeWindow().catch((err: any) => console.error('Maximize error:', err))
+        }}>
+          {isMaximized ? '❐' : '□'}
         </button>
-        <button className="window-btn close" onClick={() => window.api.closeWindow()}>
+        <button className="window-btn close" onClick={() => {
+          console.log('Close button clicked')
+          window.api.closeWindow().catch((err: any) => console.error('Close error:', err))
+        }}>
           ✕
         </button>
       </div>
+      {showShortcuts && (
+        <div className="shortcut-modal-overlay" onClick={() => setShowShortcuts(false)}>
+          <div className="shortcut-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="shortcut-modal-header">
+              <h3>快捷键</h3>
+              <button className="shortcut-modal-close" onClick={() => setShowShortcuts(false)}>✕</button>
+            </div>
+            <div className="shortcut-modal-body">
+              {shortcutGroups.map(group => (
+                <div key={group.title} className="shortcut-group">
+                  <div className="shortcut-group-title">{group.title}</div>
+                  {group.items.map(item => (
+                    <div key={item.label} className="shortcut-row">
+                      <span className="shortcut-label">{item.label}</span>
+                      <span className="shortcut-key">{item.shortcut}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {showAbout && (
+        <div className="about-modal-overlay" onClick={() => setShowAbout(false)}>
+          <div className="about-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="about-modal-header">
+              <h3>关于 MDViewer</h3>
+              <button className="about-modal-close" onClick={() => setShowAbout(false)}>✕</button>
+            </div>
+            <div className="about-modal-body">
+              <div className="about-logo">📝</div>
+              <h2 className="about-title">MDViewer</h2>
+              <p className="about-version">版本 0.1.0</p>
+              <p className="about-description">
+                一款类 Typora 风格的 Markdown 编辑器<br />
+                基于 Electron + React + Tiptap 构建
+              </p>
+              <div className="about-info">
+                <div className="about-info-item">
+                  <span className="about-info-label">作者:</span>
+                  <span className="about-info-value">MDViewer Team</span>
+                </div>
+              </div>
+              <p className="about-copyright">
+                © 2026 MDViewer<br />
+                保留所有权利
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

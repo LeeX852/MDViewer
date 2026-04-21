@@ -20,11 +20,11 @@ interface WindowAPI {
   readFile: (filePath: string) => Promise<string | null>
   readDirTree: (dirPath: string) => Promise<DirNode[]>
   openFolder: () => Promise<string | null>
-  minimizeWindow: () => Promise<void>
-  maximizeWindow: () => Promise<void>
-  closeWindow: () => Promise<void>
+  minimizeWindow: () => Promise<boolean>
+  maximizeWindow: () => Promise<boolean>
+  closeWindow: () => Promise<boolean>
   isMaximized: () => Promise<boolean>
-  showAbout: () => Promise<void>
+  showAbout: () => Promise<boolean>
 }
 
 declare global {

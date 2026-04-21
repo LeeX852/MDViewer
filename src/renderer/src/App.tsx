@@ -7,6 +7,7 @@ import SourceEditor from './components/SourceEditor'
 import ResizeHandle from './components/ResizeHandle'
 import { EditorProvider } from './hooks/useEditorContext'
 import { useEditorState } from './hooks/useEditorState'
+import { ipc } from './utils/ipc'
 import type { DirNode } from '../../preload/index.d'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 
@@ -84,31 +85,43 @@ export default function App() {
   }, [setContent, setFilePath, markSaved])
 
   const handleOpenFile = useCallback(async () => {
-    const result = await window.api.openFile()
-    if (result) {
-      setContent(result.content)
-      setFilePath(result.filePath)
+    try {
+      const result = await ipc.openFile()
+      if (result) {
+        setContent(result.content)
+        setFilePath(result.filePath)
+      }
+    } catch (error) {
+      console.error('[App] Failed to open file:', error)
     }
   }, [setContent, setFilePath])
 
   const handleSave = useCallback(async () => {
-    if (filePath) {
-      await window.api.saveFile(filePath, content)
-      markSaved()
-    } else {
-      const savedPath = await window.api.saveFileAs(content)
-      if (savedPath) {
-        setFilePath(savedPath)
+    try {
+      if (filePath) {
+        await ipc.saveFile(filePath, content)
         markSaved()
+      } else {
+        const savedPath = await ipc.saveFileAs(content)
+        if (savedPath) {
+          setFilePath(savedPath)
+          markSaved()
+        }
       }
+    } catch (error) {
+      console.error('[App] Failed to save file:', error)
     }
   }, [filePath, content, markSaved, setFilePath])
 
   const handleSaveAs = useCallback(async () => {
-    const savedPath = await window.api.saveFileAs(content)
-    if (savedPath) {
-      setFilePath(savedPath)
-      markSaved()
+    try {
+      const savedPath = await ipc.saveFileAs(content)
+      if (savedPath) {
+        setFilePath(savedPath)
+        markSaved()
+      }
+    } catch (error) {
+      console.error('[App] Failed to save as:', error)
     }
   }, [content, markSaved, setFilePath])
 
