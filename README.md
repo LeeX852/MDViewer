@@ -92,7 +92,7 @@
 ### 安装方法
 
 #### 方法1：下载安装包
-1. 从 [Releases](https://github.com/LeeX/mdviewer/releases) 页面下载最新版本
+1. 从 [Releases](https://github.com/LeeX852/MDViewer/releases) 页面下载最新版本
 2. 运行 `MDViewer Setup 0.1.0.exe` 安装程序
 3. 按提示完成安装
 
@@ -168,7 +168,7 @@ mdviewer/
 
 ## 问题反馈
 
-如果你在使用过程中遇到任何问题，欢迎提交 [Issue](https://github.com/LeeX/mdviewer/issues)。
+如果你在使用过程中遇到任何问题，欢迎提交 [Issue](https://github.com/LeeX852/MDViewer/issues)。
 
 ## 贡献指南
 
