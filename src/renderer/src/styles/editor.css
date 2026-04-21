@@ -1,0 +1,310 @@
+.editor-wrapper {
+  width: 100%;
+  max-width: 850px;
+  padding: 32px 48px;
+}
+
+.prosemirror-editor {
+  outline: none;
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.prosemirror-editor > *:first-child {
+  margin-top: 0;
+}
+
+/* Headings */
+.prosemirror-editor h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1.2em 0 0.6em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.prosemirror-editor h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.prosemirror-editor h3 { font-size: 1.25em; font-weight: 600; margin: 0.8em 0 0.4em; }
+.prosemirror-editor h4 { font-size: 1.1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.prosemirror-editor h5 { font-size: 1em; font-weight: 600; margin: 0.5em 0 0.3em; }
+.prosemirror-editor h6 { font-size: 0.9em; font-weight: 600; margin: 0.5em 0 0.3em; color: var(--text-secondary); }
+
+/* Paragraph */
+.prosemirror-editor p {
+  margin: 0.5em 0;
+}
+
+/* Links */
+.prosemirror-editor a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.prosemirror-editor a:hover {
+  border-bottom-color: var(--accent);
+}
+
+/* Bold & Italic */
+.prosemirror-editor strong { font-weight: 600; }
+.prosemirror-editor em { font-style: italic; }
+
+/* Inline code */
+.prosemirror-editor code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent);
+}
+
+/* Code blocks */
+.prosemirror-editor pre {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 1em 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.prosemirror-editor pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: var(--text-primary);
+}
+
+/* Blockquote */
+.prosemirror-editor blockquote {
+  border-left: 4px solid var(--accent);
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  color: var(--text-secondary);
+  background: rgba(137, 180, 250, 0.05);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Lists */
+.prosemirror-editor ul,
+.prosemirror-editor ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.prosemirror-editor li {
+  margin: 0.2em 0;
+}
+
+.prosemirror-editor li p {
+  margin: 0;
+}
+
+/* Task list */
+.prosemirror-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prosemirror-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.prosemirror-editor ul[data-type="taskList"] li label {
+  margin-top: 4px;
+}
+
+.prosemirror-editor ul[data-type="taskList"] li input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* Horizontal rule */
+.prosemirror-editor hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2em 0;
+}
+
+/* Images */
+.prosemirror-editor img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+
+/* Tables */
+.prosemirror-editor table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.prosemirror-editor th,
+.prosemirror-editor td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.prosemirror-editor th {
+  background: var(--bg-surface);
+  font-weight: 600;
+}
+
+.prosemirror-editor tr:hover td {
+  background: rgba(137, 180, 250, 0.05);
+}
+
+/* Highlight */
+.prosemirror-editor mark {
+  background: rgba(249, 226, 175, 0.3);
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+/* Math */
+.math-inline {
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.math-inline:hover {
+  background: var(--bg-surface);
+  border-radius: 3px;
+}
+
+.math-inline-edit {
+  display: inline;
+}
+
+.math-inline-input {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--text-primary);
+  outline: none;
+  min-width: 80px;
+}
+
+.math-block {
+  margin: 1em 0;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.math-block:hover {
+  border-color: var(--accent);
+}
+
+.math-block-edit {
+  margin: 1em 0;
+}
+
+.math-block-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.math-error {
+  color: var(--error);
+  font-family: var(--font-mono);
+}
+
+/* Mermaid */
+.mermaid-block {
+  margin: 1em 0;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.mermaid-block:hover {
+  border-color: var(--accent);
+}
+
+.mermaid-block-edit {
+  margin: 1em 0;
+}
+
+.mermaid-textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.mermaid-error {
+  color: var(--error);
+  font-size: 13px;
+}
+
+/* Placeholder */
+.prosemirror-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Underline */
+.prosemirror-editor u {
+  text-decoration: underline;
+}
+
+/* Strikethrough */
+.prosemirror-editor s {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+/* Selection in code blocks */
+.prosemirror-editor pre ::selection {
+  background: rgba(137, 180, 250, 0.25);
+}

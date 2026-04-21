@@ -1,0 +1,224 @@
+.sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-action {
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.sidebar-action:hover {
+  background: var(--bg-surface);
+}
+
+.sidebar-root {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+  gap: 12px;
+}
+
+.open-folder-btn {
+  padding: 6px 16px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.open-folder-btn:hover {
+  background: var(--accent-hover);
+}
+
+.tree-item {
+  user-select: none;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px 3px 24px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.file-item:hover {
+  background: var(--bg-surface);
+}
+
+.file-item.active {
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--accent);
+}
+
+.file-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-item {
+  padding-left: 8px;
+}
+
+.dir-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.dir-header:hover {
+  background: var(--bg-surface);
+}
+
+.dir-icon {
+  font-size: 12px;
+}
+
+.dir-name {
+  font-weight: 500;
+}
+
+.dir-children {
+  padding-left: 8px;
+}
+
+.outline-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.outline-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.outline-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.outline-empty {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.outline-item {
+  padding: 3px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+
+.outline-item:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.outline-item.level-1 { padding-left: 12px; font-weight: 600; }
+.outline-item.level-2 { padding-left: 20px; }
+.outline-item.level-3 { padding-left: 28px; }
+.outline-item.level-4 { padding-left: 36px; font-size: 11px; }
+.outline-item.level-5 { padding-left: 44px; font-size: 11px; }
+.outline-item.level-6 { padding-left: 52px; font-size: 11px; }
+
+/* Resize handles */
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent);
+}
+
+.resize-handle-left {
+  margin-right: -2px;
+}
+
+.resize-handle-right {
+  margin-left: -2px;
+}
+
+/* Prevent text selection while dragging */
+body.is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.is-resizing * {
+  cursor: col-resize !important;
+}
