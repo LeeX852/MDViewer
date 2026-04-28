@@ -25,18 +25,18 @@ interface MenuBarProps {
   typewriterMode: boolean
   sourceMode: boolean
   sidebarVisible: boolean
-  outlineVisible: boolean
+  viewMode: 'edit' | 'split'
   onOpenFile: () => void
   onNewFile: () => void
   onOpenFolder: () => void
   onSave: () => void
   onSaveAs: () => void
   onToggleSidebar: () => void
-  onToggleOutline: () => void
   onToggleTheme: () => void
   onToggleFocusMode: () => void
   onToggleTypewriterMode: () => void
   onToggleSourceMode: () => void
+  onViewModeChange: (mode: 'edit' | 'split') => void
 }
 
 export default function MenuBar({
@@ -47,18 +47,18 @@ export default function MenuBar({
   typewriterMode,
   sourceMode,
   sidebarVisible,
-  outlineVisible,
+  viewMode,
   onOpenFile,
   onNewFile,
   onOpenFolder,
   onSave,
   onSaveAs,
   onToggleSidebar,
-  onToggleOutline,
   onToggleTheme,
   onToggleFocusMode,
   onToggleTypewriterMode,
-  onToggleSourceMode
+  onToggleSourceMode,
+  onViewModeChange
 }: MenuBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -85,7 +85,7 @@ export default function MenuBar({
       setIsMaximized(maximized)
     }
     checkMaximized()
-    
+
     const interval = setInterval(checkMaximized, 500)
     return () => clearInterval(interval)
   }, [])
@@ -203,7 +203,6 @@ export default function MenuBar({
       label: '视图',
       items: [
         { label: '侧边栏', shortcut: 'Ctrl+\\', action: onToggleSidebar, checked: sidebarVisible },
-        { label: '大纲', action: onToggleOutline, checked: outlineVisible },
         { label: '', separator: true },
         { label: '聚焦模式', shortcut: 'F8', action: onToggleFocusMode, checked: focusMode },
         { label: '打字机模式', shortcut: 'F9', action: onToggleTypewriterMode, checked: typewriterMode },
@@ -281,30 +280,27 @@ export default function MenuBar({
     <div className="menubar" ref={menuBarRef}>
       <div className="menubar-left">
         {menus.map(menu => (
-          <div key={menu.label} className="menu-item-container">
+          <div key={menu.label} className="menubar-menu">
             <button
-              className={`menu-trigger ${openMenu === menu.label ? 'active' : ''}`}
+              className={`menubar-menu-btn ${openMenu === menu.label ? 'active' : ''}`}
               onClick={() => toggleMenu(menu.label)}
-              onMouseEnter={() => openMenu && setOpenMenu(menu.label)}
             >
               {menu.label}
             </button>
             {openMenu === menu.label && (
-              <div className="menu-dropdown">
+              <div className="menubar-dropdown">
                 {menu.items.map((item, i) =>
                   item.separator ? (
-                    <div key={i} className="menu-separator" />
+                    <div key={i} className="menubar-dropdown-separator" />
                   ) : (
                     <button
                       key={i}
-                      className={`menu-dropdown-item ${item.disabled ? 'disabled' : ''}`}
+                      className={`menubar-dropdown-item ${item.disabled ? 'disabled' : ''}`}
                       onClick={() => !item.disabled && handleItemAction(item.action)}
                     >
-                      <span className="menu-item-label">
-                        <span className="menu-check">{item.checked ? '✓' : item.checked === false ? '' : ''}</span>
-                        {item.label}
-                      </span>
-                      {item.shortcut && <span className="menu-shortcut">{item.shortcut}</span>}
+                      <span className="menubar-dropdown-check">{item.checked ? '✓' : ''}</span>
+                      <span className="menubar-dropdown-label">{item.label}</span>
+                      {item.shortcut && <span className="menubar-dropdown-shortcut">{item.shortcut}</span>}
                     </button>
                   )
                 )}
@@ -314,9 +310,66 @@ export default function MenuBar({
         ))}
       </div>
       <div className="menubar-center" onDoubleClick={() => window.api.maximizeWindow()}>
-        <div className="menubar-center-content">{title}</div>
+        <div className="menubar-center-content">{title || '未命名'}</div>
       </div>
       <div className="menubar-right">
+        <div className="menubar-toolbar">
+          <button
+            className={`toolbar-btn ${viewMode === 'edit' ? 'active' : ''}`}
+            onClick={() => onViewModeChange('edit')}
+            title="编辑模式"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+          </button>
+          <button
+            className={`toolbar-btn ${viewMode === 'split' ? 'active' : ''}`}
+            onClick={() => onViewModeChange('split')}
+            title="分屏模式"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="12" y1="3" x2="12" y2="21" />
+            </svg>
+          </button>
+          <div className="toolbar-divider" />
+          <button
+            className={`toolbar-btn ${sourceMode ? 'active' : ''}`}
+            onClick={onToggleSourceMode}
+            title="源码模式 (Ctrl+/)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </button>
+          <div className="toolbar-divider" />
+          <button
+            className="toolbar-btn"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? '亮色主题' : '暗色主题'}
+          >
+            {theme === 'dark' ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
+        </div>
         <button className="window-btn minimize" onClick={() => {
           console.log('Minimize button clicked, window.api:', window.api)
           window.api.minimizeWindow().catch((err: any) => console.error('Minimize error:', err))

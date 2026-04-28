@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>磨砂玻璃 Markdown 编辑器</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+<style>
+  @import url('https://cdn.jsdelivr.net/npm/fontsource-inter@5.0.0/400.css');
+  @import url('https://cdn.jsdelivr.net/npm/fontsource-inter@5.0.0/500.css');
+  @import url('https://cdn.jsdelivr.net/npm/fontsource-inter@5.0.0/600.css');
+  @import url('https://cdn.jsdelivr.net/npm/fontsource-inter@5.0.0/700.css');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-shadow: rgba(0, 0, 0, 0.15);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.5);
+    --accent: #a78bfa;
+    --accent-hover: #c4b5fd;
+    --editor-bg: rgba(255, 255, 255, 0.06);
+    --toolbar-hover: rgba(255, 255, 255, 0.15);
+    --preview-heading: #e0e7ff;
+    --preview-link: #93c5fd;
+    --preview-code-bg: rgba(0, 0, 0, 0.3);
+    --preview-blockquote: rgba(255, 255, 255, 0.08);
+    --preview-blockquote-border: rgba(167, 139, 250, 0.5);
+    --preview-hr: rgba(255, 255, 255, 0.15);
+    --preview-table-border: rgba(255, 255, 255, 0.15);
+    --preview-table-header: rgba(255, 255, 255, 0.08);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+    --scrollbar-track: transparent;
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+  }
+
+  .light-theme {
+    --glass-bg: rgba(255, 255, 255, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.7);
+    --glass-shadow: rgba(0, 0, 0, 0.08);
+    --text-primary: #1e293b;
+    --text-secondary: rgba(30, 41, 59, 0.7);
+    --text-muted: rgba(30, 41, 59, 0.5);
+    --accent: #7c3aed;
+    --accent-hover: #6d28d9;
+    --editor-bg: rgba(255, 255, 255, 0.4);
+    --toolbar-hover: rgba(255, 255, 255, 0.7);
+    --preview-heading: #1e293b;
+    --preview-link: #2563eb;
+    --preview-code-bg: rgba(0, 0, 0, 0.06);
+    --preview-blockquote: rgba(0, 0, 0, 0.04);
+    --preview-blockquote-border: rgba(124, 58, 237, 0.4);
+    --preview-hr: rgba(0, 0, 0, 0.12);
+    --preview-table-border: rgba(0, 0, 0, 0.12);
+    --preview-table-header: rgba(0, 0, 0, 0.04);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+    --scrollbar-track: transparent;
+    --modal-overlay: rgba(0, 0, 0, 0.3);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    transition: background 0.8s ease;
+  }
+
+  .bg-container {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    transition: opacity 1s ease;
+  }
+
+  .bg-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 1.2s ease;
+    opacity: 0;
+  }
+
+  .bg-layer.active { opacity: 1; }
+
+  .bg-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, 
+      rgba(15, 10, 30, 0.4) 0%, 
+      rgba(30, 10, 50, 0.3) 50%, 
+      rgba(10, 20, 40, 0.4) 100%);
+  }
+
+  .light-theme .bg-overlay {
+    background: linear-gradient(135deg, 
+      rgba(200, 180, 230, 0.3) 0%, 
+      rgba(220, 200, 250, 0.2) 50%, 
+      rgba(180, 210, 240, 0.3) 100%);
+  }
+
+  .app-container {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px var(--glass-shadow);
+    transition: all 0.4s ease;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), #ec4899);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+  }
+
+  .logo-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, var(--accent), #ec4899);
+    color: white;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: var(--toolbar-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--glass-shadow);
+  }
+
+  .btn:active { transform: translateY(0); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #ec4899);
+    border: none;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 4px 16px rgba(167, 139, 250, 0.4);
+  }
+
+  .btn-icon {
+    padding: 8px;
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px var(--glass-shadow);
+    transition: all 0.4s ease;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .toolbar-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--glass-border);
+    margin: 0 6px;
+  }
+
+  .toolbar-btn {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-size: 14px;
+    position: relative;
+  }
+
+  .toolbar-btn:hover {
+    background: var(--toolbar-hover);
+    color: var(--text-primary);
+    border-color: var(--glass-border);
+  }
+
+  .toolbar-btn:active { transform: scale(0.92); }
+
+  .toolbar-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .toolbar-btn .tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 11px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 100;
+  }
+
+  .toolbar-btn:hover .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toolbar-spacer { flex: 1; }
+
+  .view-toggle {
+    display: flex;
+    background: var(--editor-bg);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .view-toggle-btn {
+    padding: 5px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+  }
+
+  .view-toggle-btn.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 2px 8px rgba(167, 139, 250, 0.3);
+  }
+
+  /* Editor Area */
+  .editor-area {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+    transition: all 0.4s ease;
+  }
+
+  .editor-area.single-editor .editor-pane { flex: 1; }
+  .editor-area.single-editor .preview-pane { display: none; }
+  .editor-area.single-preview .editor-pane { display: none; }
+  .editor-area.single-preview .preview-pane { flex: 1; }
+
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px var(--glass-shadow);
+    overflow: hidden;
+    transition: all 0.4s ease;
+    min-width: 0;
+  }
+
+  .pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+  }
+
+  .pane-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pane-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .pane-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+
+  .pane-dot.red { background: #ef4444; }
+  .pane-dot.yellow { background: #eab308; }
+  .pane-dot.green { background: #22c55e; }
+
+  .editor-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #editor {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    resize: none;
+    tab-size: 2;
+  }
+
+  #editor::placeholder {
+    color: var(--text-muted);
+  }
+
+  #editor::-webkit-scrollbar { width: 8px; }
+  #editor::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  #editor::-webkit-scrollbar-thumb { 
+    background: var(--scrollbar-thumb); 
+    border-radius: 4px; 
+  }
+
+  .preview-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .preview-wrapper::-webkit-scrollbar { width: 8px; }
+  .preview-wrapper::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  .preview-wrapper::-webkit-scrollbar-thumb { 
+    background: var(--scrollbar-thumb); 
+    border-radius: 4px; 
+  }
+
+  /* Preview Styles */
+  .markdown-preview {
+    color: var(--text-primary);
+    line-height: 1.7;
+  }
+
+  .markdown-preview h1, .markdown-preview h2, .markdown-preview h3,
+  .markdown-preview h4, .markdown-preview h5, .markdown-preview h6 {
+    color: var(--preview-heading);
+    font-weight: 700;
+    margin: 1.2em 0 0.6em;
+    line-height: 1.3;
+  }
+
+  .markdown-preview h1:first-child, .markdown-preview h2:first-child,
+  .markdown-preview h3:first-child { margin-top: 0; }
+
+  .markdown-preview h1 { font-size: 1.8em; border-bottom: 1px solid var(--preview-hr); padding-bottom: 0.3em; }
+  .markdown-preview h2 { font-size: 1.5em; border-bottom: 1px solid var(--preview-hr); padding-bottom: 0.3em; }
+  .markdown-preview h3 { font-size: 1.25em; }
+  .markdown-preview h4 { font-size: 1.1em; }
+
+  .markdown-preview p {
+    margin: 0.8em 0;
+  }
+
+  .markdown-preview a {
+    color: var(--preview-link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+
+  .markdown-preview a:hover {
+    border-bottom-color: var(--preview-link);
+  }
+
+  .markdown-preview strong { font-weight: 700; }
+
+  .markdown-preview em { font-style: italic; }
+
+  .markdown-preview blockquote {
+    margin: 1em 0;
+    padding: 0.8em 1.2em;
+    background: var(--preview-blockquote);
+    border-left: 3px solid var(--preview-blockquote-border);
+    border-radius: 0 8px 8px 0;
+    color: var(--text-secondary);
+  }
+
+  .markdown-preview blockquote p { margin: 0.4em 0; }
+
+  .markdown-preview code {
+    padding: 2px 6px;
+    background: var(--preview-code-bg);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9em;
+  }
+
+  .markdown-preview pre {
+    margin: 1em 0;
+    padding: 16px;
+    background: var(--preview-code-bg);
+    border-radius: 10px;
+    overflow-x: auto;
+    border: 1px solid var(--glass-border);
+  }
+
+  .markdown-preview pre code {
+    padding: 0;
+    background: none;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .markdown-preview ul, .markdown-preview ol {
+    margin: 0.8em 0;
+    padding-left: 1.8em;
+  }
+
+  .markdown-preview li {
+    margin: 0.3em 0;
+  }
+
+  .markdown-preview li::marker {
+    color: var(--accent);
+  }
+
+  .markdown-preview hr {
+    border: none;
+    height: 1px;
+    background: var(--preview-hr);
+    margin: 1.5em 0;
+  }
+
+  .markdown-preview img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 1em 0;
+  }
+
+  .markdown-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 14px;
+  }
+
+  .markdown-preview th, .markdown-preview td {
+    padding: 10px 14px;
+    border: 1px solid var(--preview-table-border);
+    text-align: left;
+  }
+
+  .markdown-preview th {
+    background: var(--preview-table-header);
+    font-weight: 600;
+  }
+
+  .markdown-preview input[type="checkbox"] {
+    margin-right: 6px;
+    accent-color: var(--accent);
+  }
+
+  /* Status Bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px var(--glass-shadow);
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: all 0.4s ease;
+  }
+
+  .status-left, .status-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-item svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.6;
+  }
+
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--modal-overlay);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal {
+    background: var(--glass-bg);
+    backdrop-filter: blur(30px) saturate(1.5);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 24px;
+    width: 90%;
+    max-width: 480px;
+    transform: scale(0.9) translateY(20px);
+    transition: all 0.3s ease;
+  }
+
+  .modal-overlay.active .modal {
+    transform: scale(1) translateY(0);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+  }
+
+  .modal-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--editor-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 12px;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+  }
+
+  .modal-input:focus {
+    border-color: var(--accent);
+  }
+
+  .modal-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  /* Floating orbs decoration */
+  .floating-orbs {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.4;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .orb:nth-child(1) {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, #a78bfa, transparent);
+    top: 10%;
+    left: 5%;
+    animation-delay: 0s;
+  }
+
+  .orb:nth-child(2) {
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, #ec4899, transparent);
+    top: 60%;
+    right: 10%;
+    animation-delay: -5s;
+  }
+
+  .orb:nth-child(3) {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, #3b82f6, transparent);
+    bottom: 10%;
+    left: 30%;
+    animation-delay: -10s;
+  }
+
+  .orb:nth-child(4) {
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, #06b6d4, transparent);
+    top: 30%;
+    right: 30%;
+    animation-delay: -15s;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(30px, -40px) scale(1.1); }
+    50% { transform: translate(-20px, 20px) scale(0.95); }
+    75% { transform: translate(40px, 30px) scale(1.05); }
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .app-container { padding: 8px; gap: 8px; }
+    .editor-area { flex-direction: column; }
+    .header { padding: 10px 14px; }
+    .logo-text { font-size: 15px; }
+    .logo-badge { display: none; }
+    .btn span.btn-label { display: none; }
+    .toolbar { padding: 6px 10px; }
+    .status-bar { padding: 6px 10px; flex-wrap: wrap; gap: 8px; }
+    .status-right { display: none; }
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .header { animation: fadeIn 0.5s ease forwards; }
+  .toolbar { animation: fadeIn 0.5s ease 0.1s forwards; opacity: 0; }
+  .editor-area { animation: fadeIn 0.5s ease 0.2s forwards; opacity: 0; }
+  .status-bar { animation: fadeIn 0.5s ease 0.3s forwards; opacity: 0; }
+
+  /* Selection */
+  ::selection {
+    background: rgba(167, 139, 250, 0.3);
+    color: var(--text-primary);
+  }
+
+  /* Scrollbar for preview */
+  .preview-wrapper {
+    scroll-behavior: smooth;
+  }
+
+  /* Task list */
+  .markdown-preview .task-list-item {
+    list-style: none;
+    margin-left: -1.2em;
+  }
+</style>
+</head>
+<body>
+  <!-- Background -->
+  <div class="bg-container">
+    <div class="bg-layer active" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1abc01bc1-a699-4fc4-8a40-4120e227a7f4.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1a53e84e4-eebc-4783-ad14-022d97742900.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1f87aca9b-86f4-4b65-bee4-e4797fc181f2.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/162e0a4c8-0f57-44cc-abce-7753915b8d13.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1b5316efa-1635-4a04-aa6e-ebf9ae321a7b.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/15769f8fe-429b-4d82-8680-709315e7aca4.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1fa0f946f-27a0-48af-bdda-3f26f7ae4850.png')"></div>
+    <div class="bg-layer" style="background-image: url('https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1cf0076f3-b969-46a8-b340-af353bd32a9e.png')"></div>
+    <div class="bg-overlay"></div>
+  </div>
+
+  <!-- Floating Orbs -->
+  <div class="floating-orbs">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <!-- App -->
+  <div class="app-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <path d="M4 4v16l4-4h12V4z"/>
+          </svg>
+        </div>
+        <span class="logo-text">GlassMD</span>
+        <span class="logo-badge">Editor</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-icon" onclick="toggleTheme()" id="themeBtn" title="切换主题">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button class="btn btn-icon" onclick="changeBackground()" title="切换背景">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </button>
+        <button class="btn" onclick="newDocument()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          <span class="btn-label">新建</span>
+        </button>
+        <button class="btn" onclick="exportMarkdown()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span class="btn-label">导出 .md</span>
+        </button>
+        <button class="btn btn-primary" onclick="exportHTML()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+          <span class="btn-label">导出 HTML</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="insertText('# ', '')" title="标题1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17 12l3-2v8"/></svg>
+          <span class="tooltip">标题 1</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertText('## ', '')" title="标题2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></svg>
+          <span class="tooltip">标题 2</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertText('### ', '')" title="标题3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c1.7-1 3.5 0 3.5 1.5a2 2 0 0 1-2 2"/></svg>
+          <span class="tooltip">标题 3</span>
+        </button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="wrapText('**', '**')" title="粗体">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
+          <span class="tooltip">粗体</span>
+        </button>
+        <button class="toolbar-btn" onclick="wrapText('*', '*')" title="斜体">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+          <span class="tooltip">斜体</span>
+        </button>
+        <button class="toolbar-btn" onclick="wrapText('~~', '~~')" title="删除线">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+          <span class="tooltip">删除线</span>
+        </button>
+        <button class="toolbar-btn" onclick="wrapText('`', '`')" title="行内代码">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span class="tooltip">行内代码</span>
+        </button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="insertText('- ', '')" title="无序列表">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          <span class="tooltip">无序列表</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertText('1. ', '')" title="有序列表">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="3" y="8" font-size="6" fill="currentColor" stroke="none">1</text><text x="3" y="14" font-size="6" fill="currentColor" stroke="none">2</text><text x="3" y="20" font-size="6" fill="currentColor" stroke="none">3</text></svg>
+          <span class="tooltip">有序列表</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertText('- [ ] ', '')" title="任务列表">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span class="tooltip">任务列表</span>
+        </button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="insertText('> ', '')" title="引用">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+          <span class="tooltip">引用</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertText('---\n', '')" title="分割线">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          <span class="tooltip">分割线</span>
+        </button>
+        <button class="toolbar-btn" onclick="showLinkModal()" title="链接">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span class="tooltip">链接</span>
+        </button>
+        <button class="toolbar-btn" onclick="showImageModal()" title="图片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="tooltip">图片</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertCodeBlock()" title="代码块">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span class="tooltip">代码块</span>
+        </button>
+        <button class="toolbar-btn" onclick="insertTable()" title="表格">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          <span class="tooltip">表格</span>
+        </button>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" onclick="setView('split', this)">分屏</button>
+        <button class="view-toggle-btn" onclick="setView('single-editor', this)">编辑</button>
+        <button class="view-toggle-btn" onclick="setView('single-preview', this)">预览</button>
+      </div>
+    </div>
+
+    <!-- Editor Area -->
+    <div class="editor-area" id="editorArea">
+      <!-- Editor Pane -->
+      <div class="pane editor-pane">
+        <div class="pane-header">
+          <span class="pane-title">✏️ 编辑</span>
+          <div class="pane-dots">
+            <div class="pane-dot red"></div>
+            <div class="pane-dot yellow"></div>
+            <div class="pane-dot green"></div>
+          </div>
+        </div>
+        <div class="editor-wrapper">
+          <textarea id="editor" placeholder="在此输入 Markdown 内容...&#10;&#10;支持标准 Markdown 语法，实时预览 →"></textarea>
+        </div>
+      </div>
+
+      <!-- Preview Pane -->
+      <div class="pane preview-pane">
+        <div class="pane-header">
+          <span class="pane-title">👁️ 预览</span>
+          <div class="pane-dots">
+            <div class="pane-dot red"></div>
+            <div class="pane-dot yellow"></div>
+            <div class="pane-dot green"></div>
+          </div>
+        </div>
+        <div class="preview-wrapper">
+          <div class="markdown-preview" id="preview"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-left">
+        <div class="status-item">
+          <div class="status-indicator"></div>
+          <span>就绪</span>
+        </div>
+        <div class="status-item">
+          <span id="wordCount">0 词</span>
+        </div>
+        <div class="status-item">
+          <span id="charCount">0 字符</span>
+        </div>
+        <div class="status-item">
+          <span id="lineCount">0 行</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <div class="status-item">
+          <span>Markdown</span>
+        </div>
+        <div class="status-item">
+          <span>UTF-8</span>
+        </div>
+        <div class="status-item">
+          <span id="saveStatus">已保存</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link Modal -->
+  <div class="modal-overlay" id="linkModal">
+    <div class="modal">
+      <div class="modal-title">插入链接</div>
+      <input class="modal-input" id="linkText" placeholder="链接文字" />
+      <input class="modal-input" id="linkUrl" placeholder="URL 地址 (https://...)" />
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('linkModal')">取消</button>
+        <button class="btn btn-primary" onclick="insertLink()">插入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Modal -->
+  <div class="modal-overlay" id="imageModal">
+    <div class="modal">
+      <div class="modal-title">插入图片</div>
+      <input class="modal-input" id="imageAlt" placeholder="图片描述" />
+      <input class="modal-input" id="imageUrl" placeholder="图片 URL" />
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('imageModal')">取消</button>
+        <button class="btn btn-primary" onclick="insertImage()">插入</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const editor = document.getElementById('editor');
+  const preview = document.getElementById('preview');
+  const editorArea = document.getElementById('editorArea');
+  let currentBgIndex = 0;
+  const bgLayers = document.querySelectorAll('.bg-layer');
+  let isDarkTheme = true;
+  let saveTimeout = null;
+
+  // Default content
+  const defaultContent = `# 🌟 GlassMD 磨砂玻璃编辑器
+
+欢迎使用 **GlassMD** — 一个拥有精美磨砂玻璃质感的 Markdown 编辑器。
+
+## ✨ 功能特性
+
+-  **磨砂玻璃设计** — 精美的 Glassmorphism UI 风格
+- 📝 **实时预览** — 编辑内容即时渲染
+- 🌓 **主题切换** — 支持深色/浅色主题
+- 🖼️ **多种背景** — 可切换多种精美背景
+- 📊 **代码高亮** — 支持多种编程语言
+- 📱 **响应式布局** — 适配各种屏幕尺寸
+
+## 📖 Markdown 语法示例
+
+### 文本格式化
+
+这是 **粗体文本**，这是 *斜体文本*，这是 ~~删除线~~。
+
+> 💡 **提示：** 使用工具栏按钮可以快速插入常用 Markdown 语法。
+
+### 代码块
+
+\`\`\`javascript
+function greet(name) {
+  return \`Hello, \${name}! Welcome to GlassMD.\`;
+}
+
+console.log(greet('World'));
+// Output: Hello, World! Welcome to GlassMD.
+\`\`\`
+
+\`\`\`python
+class GlassEditor:
+    def __init__(self):
+        self.theme = "glassmorphism"
+        self.features = ["live_preview", "syntax_highlight", "export"]
+    
+    def render(self, markdown_text):
+        return self.parse(markdown_text)
+\`\`\`
+
+### 表格
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 实时预览 | ✅ | 支持 |
+| 代码高亮 | ✅ | 支持 |
+| 主题切换 | ✅ | 深色/浅色 |
+| 导出功能 | ✅ | MD / HTML |
+| 多背景 | ✅ | 8种背景 |
+
+### 任务列表
+
+- [x] 实现磨砂玻璃 UI
+- [x] 添加 Markdown 解析
+- [x] 实现代码高亮
+- [x] 添加主题切换
+- [x] 实现导出功能
+- [ ] 添加更多主题
+- [ ] 支持离线使用
+
+### 数学公式
+
+使用行内公式：$E = mc^2$，或者使用块级公式：
+
+$$\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}$$
+
+### 图片
+
+![示例图片](https://image.qwenlm.ai/public_source/6e54b876-7977-4d75-af90-c6a7a3f19b0c/1cf0076f3-b969-46a8-b340-af353bd32a9e.png)
+
+---
+
+*使用 GlassMD 享受优雅的写作体验 ✨*
+`;
+
+  // Configure marked
+  marked.setOptions({
+    highlight: function(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return hljs.highlight(code, { language: lang }).value;
+        } catch (e) {}
+      }
+      try {
+        return hljs.highlightAuto(code).value;
+      } catch (e) {}
+      return code;
+    },
+    breaks: true,
+    gfm: true
+  });
+
+  // Custom renderer for checkboxes
+  const renderer = new marked.Renderer();
+  renderer.checkbox = function(checked) {
+    return checked ? '<input type="checkbox" checked disabled> ' : '<input type="checkbox" disabled> ';
+  };
+  marked.setOptions({ renderer });
+
+  // Initialize
+  function init() {
+    const saved = localStorage.getItem('glassmd-content');
+    editor.value = saved || defaultContent;
+    updatePreview();
+    updateStats();
+
+    // Load theme
+    const savedTheme = localStorage.getItem('glassmd-theme');
+    if (savedTheme === 'light') {
+      isDarkTheme = false;
+      document.body.classList.add('light-theme');
+    }
+
+    // Load bg index
+    const savedBg = localStorage.getItem('glassmd-bg');
+    if (savedBg) {
+      currentBgIndex = parseInt(savedBg);
+      bgLayers.forEach((l, i) => l.classList.toggle('active', i === currentBgIndex));
+    }
+  }
+
+  // Update preview
+  function updatePreview() {
+    const md = editor.value;
+    preview.innerHTML = marked.parse(md);
+
+    // Re-apply highlight
+    preview.querySelectorAll('pre code').forEach(block => {
+      hljs.highlightElement(block);
+    });
+
+    updateStats();
+    autoSave();
+  }
+
+  // Update stats
+  function updateStats() {
+    const text = editor.value;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    const lines = text.split('\n').length;
+
+    document.getElementById('wordCount').textContent = `${words} 词`;
+    document.getElementById('charCount').textContent = `${chars} 字符`;
+    document.getElementById('lineCount').textContent = `${lines} 行`;
+  }
+
+  // Auto save
+  function autoSave() {
+    document.getElementById('saveStatus').textContent = '保存中...';
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      localStorage.setItem('glassmd-content', editor.value);
+      document.getElementById('saveStatus').textContent = '已保存';
+    }, 500);
+  }
+
+  // Insert text at cursor
+  function insertText(before, after) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+    const selected = text.substring(start, end);
+
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const lineText = text.substring(lineStart, start);
+
+    let insertion = before + selected + after;
+    if (!selected && before.endsWith(' ')) {
+      insertion = before + after;
+    }
+
+    editor.value = text.substring(0, start) + insertion + text.substring(end);
+
+    if (selected) {
+      editor.selectionStart = start;
+      editor.selectionEnd = start + insertion.length;
+    } else {
+      const newPos = start + before.length;
+      editor.selectionStart = newPos;
+      editor.selectionEnd = newPos;
+    }
+
+    editor.focus();
+    updatePreview();
+  }
+
+  // Wrap selected text
+  function wrapText(before, after) {
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+    const selected = text.substring(start, end);
+
+    if (selected) {
+      // Check if already wrapped
+      const beforeStart = start - before.length;
+      const afterEnd = end + after.length;
+      if (text.substring(beforeStart, start) === before && text.substring(end, afterEnd) === after) {
+        // Unwrap
+        editor.value = text.substring(0, beforeStart) + selected + text.substring(afterEnd);
+        editor.selectionStart = beforeStart;
+        editor.selectionEnd = beforeStart + selected.length;
+      } else {
+        editor.value = text.substring(0, start) + before + selected + after + text.substring(end);
+        editor.selectionStart = start;
+        editor.selectionEnd = end + before.length + after.length;
+      }
+    } else {
+      editor.value = text.substring(0, start) + before + after + text.substring(end);
+      editor.selectionStart = start + before.length;
+      editor.selectionEnd = start + before.length;
+    }
+
+    editor.focus();
+    updatePreview();
+  }
+
+  // Insert code block
+  function insertCodeBlock() {
+    const lang = prompt('编程语言 (javascript, python, css, html...)', 'javascript');
+    if (lang !== null) {
+      insertText(`\n\`\`\`${lang}\n`, `\n\`\`\`\n`);
+    }
+  }
+
+  // Insert table
+  function insertTable() {
+    const rows = prompt('行数 (不含表头)', '3');
+    const cols = prompt('列数', '3');
+    if (rows && cols) {
+      const r = parseInt(rows);
+      const c = parseInt(cols);
+      let table = '\n';
+      // Header
+      const headerCells = [];
+      const separatorCells = [];
+      for (let i = 0; i < c; i++) {
+        headerCells.push(` 列${i + 1} `);
+        separatorCells.push('---');
+      }
+      table += '| ' + headerCells.join('|') + ' |\n';
+      table += '|' + separatorCells.join('|') + '|\n';
+      // Rows
+      for (let i = 0; i < r; i++) {
+        const cells = [];
+        for (let j = 0; j < c; j++) {
+          cells.push(` 内容 `);
+        }
+        table += '| ' + cells.join('|') + ' |\n';
+      }
+      insertText(table, '');
+    }
+  }
+
+  // View toggle
+  function setView(view, btn) {
+    editorArea.className = 'editor-area';
+    if (view !== 'split') {
+      editorArea.classList.add(view);
+    }
+    document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // Theme toggle
+  function toggleTheme() {
+    isDarkTheme = !isDarkTheme;
+    document.body.classList.toggle('light-theme', !isDarkTheme);
+    localStorage.setItem('glassmd-theme', isDarkTheme ? 'dark' : 'light');
+  }
+
+  // Change background
+  function changeBackground() {
+    bgLayers[currentBgIndex].classList.remove('active');
+    currentBgIndex = (currentBgIndex + 1) % bgLayers.length;
+    bgLayers[currentBgIndex].classList.add('active');
+    localStorage.setItem('glassmd-bg', currentBgIndex);
+  }
+
+  // New document
+  function newDocument() {
+    if (editor.value.trim() && !confirm('确定要新建文档吗？当前内容将丢失。')) {
+      return;
+    }
+    editor.value = '';
+    updatePreview();
+    localStorage.removeItem('glassmd-content');
+  }
+
+  // Export Markdown
+  function exportMarkdown() {
+    const blob = new Blob([editor.value], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.md';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Export HTML
+  function exportHTML() {
+    const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exported Document</title>
+<style>
+  body { font-family: 'Inter', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; color: #1e293b; line-height: 1.7; }
+  pre { background: #f1f5f9; padding: 16px; border-radius: 8px; overflow-x: auto; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre code { padding: 0; background: none; }
+  blockquote { border-left: 3px solid #a78bfa; padding: 0.5em 1em; background: #f8fafc; border-radius: 0 8px 8px 0; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+  th { background: #f8fafc; }
+  img { max-width: 100%; border-radius: 8px; }
+</style>
+</head>
+<body>
+${preview.innerHTML}
+</body>
+</html>`;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Link modal
+  function showLinkModal() {
+    document.getElementById('linkModal').classList.add('active');
+    document.getElementById('linkText').focus();
+  }
+
+  function insertLink() {
+    const text = document.getElementById('linkText').value || '链接文字';
+    const url = document.getElementById('linkUrl').value || 'https://';
+    insertText(`[${text}](${url})`, '');
+    closeModal('linkModal');
+    document.getElementById('linkText').value = '';
+    document.getElementById('linkUrl').value = '';
+  }
+
+  // Image modal
+  function showImageModal() {
+    document.getElementById('imageModal').classList.add('active');
+    document.getElementById('imageAlt').focus();
+  }
+
+  function insertImage() {
+    const alt = document.getElementById('imageAlt').value || '图片';
+    const url = document.getElementById('imageUrl').value || 'https://';
+    insertText(`![${alt}](${url})`, '');
+    closeModal('imageModal');
+    document.getElementById('imageAlt').value = '';
+    document.getElementById('imageUrl').value = '';
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+  }
+
+  // Close modal on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+      }
+    });
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key) {
+        case 's':
+          e.preventDefault();
+          localStorage.setItem('glassmd-content', editor.value);
+          document.getElementById('saveStatus').textContent = '已保存';
+          break;
+        case 'b':
+          e.preventDefault();
+          wrapText('**', '**');
+          break;
+        case 'i':
+          e.preventDefault();
+          wrapText('*', '*');
+          break;
+        case 'k':
+          e.preventDefault();
+          showLinkModal();
+          break;
+      }
+    }
+  });
+
+  // Tab support
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 2;
+      updatePreview();
+    }
+  });
+
+  // Event listeners
+  editor.addEventListener('input', updatePreview);
+
+  // Init
+  init();
+</script>
+</body>
+</html>
+

@@ -1,7 +1,7 @@
 .editor-wrapper {
   width: 100%;
   max-width: 850px;
-  padding: 32px 48px;
+  padding: var(--space-8) var(--space-8);
   min-height: 0;
 }
 
@@ -51,7 +51,7 @@
   color: var(--accent);
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast);
 }
 
 .prosemirror-editor a:hover {
@@ -68,7 +68,7 @@
   font-size: 0.875em;
   background: var(--bg-surface);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
 }
 
@@ -76,8 +76,8 @@
 .prosemirror-editor pre {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
   margin: 1em 0;
   overflow-x: auto;
   font-family: var(--font-mono);
@@ -98,8 +98,8 @@
   margin: 1em 0;
   padding: 0.5em 1em;
   color: var(--text-secondary);
-  background: rgba(137, 180, 250, 0.05);
-  border-radius: 0 4px 4px 0;
+  background: var(--glass-bg-light);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 /* Lists */
@@ -126,7 +126,7 @@
 .prosemirror-editor ul[data-type="taskList"] li {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .prosemirror-editor ul[data-type="taskList"] li label {
@@ -147,7 +147,7 @@
 /* Images */
 .prosemirror-editor img {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   margin: 1em 0;
 }
 
@@ -161,7 +161,7 @@
 .prosemirror-editor th,
 .prosemirror-editor td {
   border: 1px solid var(--border);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   text-align: left;
 }
 
@@ -171,7 +171,7 @@
 }
 
 .prosemirror-editor tr:hover td {
-  background: rgba(137, 180, 250, 0.05);
+  background: var(--glass-bg-light);
 }
 
 /* Highlight */
@@ -201,7 +201,7 @@
   font-size: 0.9em;
   background: var(--bg-surface);
   border: 1px solid var(--accent);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 2px 6px;
   color: var(--text-primary);
   outline: none;
@@ -210,9 +210,9 @@
 
 .math-block {
   margin: 1em 0;
-  padding: 16px;
+  padding: var(--space-4);
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   cursor: pointer;
   text-align: center;
@@ -233,8 +233,8 @@
   font-size: 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   color: var(--text-primary);
   outline: none;
   resize: vertical;
@@ -249,9 +249,9 @@
 /* Mermaid */
 .mermaid-block {
   margin: 1em 0;
-  padding: 16px;
+  padding: var(--space-4);
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   cursor: pointer;
   text-align: center;
@@ -272,8 +272,8 @@
   font-size: 13px;
   background: var(--bg-secondary);
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
   color: var(--text-primary);
   outline: none;
   resize: vertical;

@@ -1,7 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
-import OutlinePanel from './components/OutlinePanel'
+import IconRail from './components/IconRail'
+import StatusBar from './components/StatusBar'
+import SearchPanel from './components/SearchPanel'
+import GitPanel from './components/GitPanel'
+import TrashPanel from './components/TrashPanel'
+import SettingsPanel from './components/SettingsPanel'
 import Editor from './components/Editor'
 import SourceEditor from './components/SourceEditor'
 import ResizeHandle from './components/ResizeHandle'
@@ -12,9 +17,9 @@ import type { DirNode } from '../../preload/index.d'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 
 type ThemeMode = 'dark' | 'light'
+type SidebarView = 'files' | 'search' | 'git' | 'trash'
 
 export default function App() {
-  // 检查 preload API 是否可用
   useEffect(() => {
     console.log('[App] Checking window.api availability...')
     console.log('[App] window.api exists:', !!window.api)
@@ -24,6 +29,8 @@ export default function App() {
   }, [])
 
   const [editorInstance, setEditorInstance] = useState<TiptapEditor | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [viewMode, setViewMode] = useState<'edit' | 'split'>('edit')
 
   const {
     content,
@@ -36,7 +43,7 @@ export default function App() {
   } = useEditorState()
 
   const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [outlineVisible, setOutlineVisible] = useState(true)
+  const [activeView, setActiveView] = useState<SidebarView>('files')
   const [dirTree, setDirTree] = useState<DirNode[]>([])
   const [rootDir, setRootDir] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemeMode>('dark')
@@ -44,8 +51,8 @@ export default function App() {
   const [typewriterMode, setTypewriterMode] = useState(false)
   const [sourceMode, setSourceMode] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(250)
-  const [outlineWidth, setOutlineWidth] = useState(220)
   const typewriterScrollRef = useRef(false)
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -54,15 +61,28 @@ export default function App() {
   useEffect(() => {
     if (focusMode) {
       setSidebarVisible(false)
-      setOutlineVisible(false)
     }
   }, [focusMode])
 
   useEffect(() => {
     if (!editorInstance) return
+
+    const updateCursorPosition = () => {
+      const { from } = editorInstance.state.selection
+      const pos = editorInstance.state.doc.resolve(from)
+      const lineIndex = pos.index(0)
+      const line = lineIndex + 1
+      const lineStart = pos.start(0)
+      const column = from - lineStart + 1
+      setCursorPosition({ line, column })
+    }
+
+    editorInstance.on('selectionUpdate', updateCursorPosition)
+    editorInstance.on('update', updateCursorPosition)
+
     if (typewriterMode) {
       typewriterScrollRef.current = true
-      const handleUpdate = () => {
+      const handleTypewriterScroll = () => {
         requestAnimationFrame(() => {
           const { from } = editorInstance.state.selection
           const coords = editorInstance.view.coordsAtPos(from)
@@ -77,13 +97,20 @@ export default function App() {
           }
         })
       }
-      editorInstance.on('update', handleUpdate)
-      editorInstance.on('selectionUpdate', handleUpdate)
+      editorInstance.on('update', handleTypewriterScroll)
+      editorInstance.on('selectionUpdate', handleTypewriterScroll)
       return () => {
         typewriterScrollRef.current = false
-        editorInstance.off('update', handleUpdate)
-        editorInstance.off('selectionUpdate', handleUpdate)
+        editorInstance.off('update', updateCursorPosition)
+        editorInstance.off('selectionUpdate', updateCursorPosition)
+        editorInstance.off('update', handleTypewriterScroll)
+        editorInstance.off('selectionUpdate', handleTypewriterScroll)
       }
+    }
+
+    return () => {
+      editorInstance.off('update', updateCursorPosition)
+      editorInstance.off('selectionUpdate', updateCursorPosition)
     }
   }, [editorInstance, typewriterMode])
 
@@ -94,11 +121,8 @@ export default function App() {
   }, [setContent, setFilePath, markSaved])
 
   const handleOpenFile = useCallback(async () => {
-    console.log('[App] handleOpenFile called')
     try {
-      console.log('[App] calling ipc.openFile()...')
       const result = await ipc.openFile()
-      console.log('[App] ipc.openFile() result:', result)
       if (result) {
         setContent(result.content)
         setFilePath(result.filePath)
@@ -109,16 +133,12 @@ export default function App() {
   }, [setContent, setFilePath])
 
   const handleSave = useCallback(async () => {
-    console.log('[App] handleSave called, filePath:', filePath)
     try {
       if (filePath) {
-        console.log('[App] calling ipc.saveFile()...')
         await ipc.saveFile(filePath, content)
         markSaved()
       } else {
-        console.log('[App] no filePath, calling ipc.saveFileAs()...')
         const savedPath = await ipc.saveFileAs(content)
-        console.log('[App] saveFileAs result:', savedPath)
         if (savedPath) {
           setFilePath(savedPath)
           markSaved()
@@ -130,11 +150,8 @@ export default function App() {
   }, [filePath, content, markSaved, setFilePath])
 
   const handleSaveAs = useCallback(async () => {
-    console.log('[App] handleSaveAs called')
     try {
-      console.log('[App] calling ipc.saveFileAs()...')
       const savedPath = await ipc.saveFileAs(content)
-      console.log('[App] saveFileAs result:', savedPath)
       if (savedPath) {
         setFilePath(savedPath)
         markSaved()
@@ -145,10 +162,7 @@ export default function App() {
   }, [content, markSaved, setFilePath])
 
   const handleOpenFolder = useCallback(async () => {
-    console.log('[App] handleOpenFolder called')
-    console.log('[App] window.api available:', !!window.api)
     const folder = await window.api.openFolder()
-    console.log('[App] openFolder result:', folder)
     if (folder) {
       setRootDir(folder)
       const tree = await window.api.readDirTree(folder)
@@ -208,71 +222,136 @@ export default function App() {
     setSidebarWidth(prev => Math.max(150, Math.min(500, prev + deltaX)))
   }, [])
 
-  const handleOutlineResize = useCallback((deltaX: number) => {
-    setOutlineWidth(prev => Math.max(150, Math.min(500, prev - deltaX)))
-  }, [])
+  const handleViewChange = useCallback((view: SidebarView) => {
+    if (activeView === view && sidebarVisible) {
+      setSidebarVisible(false)
+    } else {
+      setActiveView(view)
+      setSidebarVisible(true)
+    }
+  }, [activeView, sidebarVisible])
 
-  const fileName = filePath ? filePath.split(/[/\\]/).pop() : 'Untitled'
+  const fileName = filePath ? (filePath.split(/[/\\]/).pop() ?? '未命名') : '未命名'
   const showSidebar = sidebarVisible && !focusMode
-  const showOutline = outlineVisible && !focusMode
+  const showIconRail = !focusMode
+
+  const wordCount = useMemo(() => {
+    if (!content) return 0
+    const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length
+    const englishWords = content
+      .replace(/[\u4e00-\u9fa5]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 0 && /[a-zA-Z]/.test(w)).length
+    return chineseChars + englishWords
+  }, [content])
+
+  const renderSidebarPanel = () => {
+    switch (activeView) {
+      case 'files':
+        return (
+          <Sidebar
+            dirTree={dirTree}
+            rootDir={rootDir}
+            onOpenFolder={handleOpenFolder}
+            onFileSelect={handleFileSelect}
+            currentFilePath={filePath}
+            width={sidebarWidth}
+            headings={headings}
+          />
+        )
+      case 'search':
+        return (
+          <SearchPanel
+            width={sidebarWidth}
+            content={content}
+            onFileSelect={handleFileSelect}
+            onReplace={(search, replacement) => {
+              try {
+                const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+                setContent(content.replace(regex, replacement))
+              } catch {
+                setContent(content.split(search).join(replacement))
+              }
+            }}
+          />
+        )
+      case 'git':
+        return <GitPanel width={sidebarWidth} />
+      case 'trash':
+        return <TrashPanel width={sidebarWidth} />
+      default:
+        return null
+    }
+  }
 
   return (
     <EditorProvider value={editorInstance}>
       <div className="app-container">
         <MenuBar
-          title={`${fileName}${isModified ? ' •' : ''} - MDViewer`}
+          title={fileName}
           editor={editorInstance}
           theme={theme}
           focusMode={focusMode}
           typewriterMode={typewriterMode}
           sourceMode={sourceMode}
           sidebarVisible={sidebarVisible}
-          outlineVisible={outlineVisible}
+          viewMode={viewMode}
           onOpenFile={handleOpenFile}
           onNewFile={handleNewFile}
           onOpenFolder={handleOpenFolder}
           onSave={handleSave}
           onSaveAs={handleSaveAs}
           onToggleSidebar={() => setSidebarVisible(v => !v)}
-          onToggleOutline={() => setOutlineVisible(v => !v)}
           onToggleTheme={handleToggleTheme}
           onToggleFocusMode={() => setFocusMode(v => !v)}
           onToggleTypewriterMode={() => setTypewriterMode(v => !v)}
           onToggleSourceMode={() => setSourceMode(v => !v)}
+          onViewModeChange={setViewMode}
         />
         <div className={`main-content ${focusMode ? 'focus-mode' : ''}`}>
+          {showIconRail && (
+            <IconRail
+              activeView={activeView}
+              onViewChange={handleViewChange}
+              onOpenSettings={() => setShowSettings(true)}
+              onOpenHelp={() => {}}
+            />
+          )}
           {showSidebar && (
             <>
-              <Sidebar
-                dirTree={dirTree}
-                rootDir={rootDir}
-                onOpenFolder={handleOpenFolder}
-                onFileSelect={handleFileSelect}
-                currentFilePath={filePath}
-                width={sidebarWidth}
-              />
+              {renderSidebarPanel()}
               <ResizeHandle side="left" onResize={handleSidebarResize} />
             </>
           )}
-          <div className="editor-area">
-            {sourceMode ? (
-              <SourceEditor content={content} onChange={setContent} />
-            ) : (
-              <Editor
-                content={content}
-                onChange={setContent}
-                onSave={handleSave}
-                onEditorReady={setEditorInstance}
-              />
-            )}
-          </div>
-          {showOutline && (
-            <>
-              <ResizeHandle side="right" onResize={handleOutlineResize} />
-              <OutlinePanel headings={headings} width={outlineWidth} />
-            </>
+          {showSettings ? (
+            <SettingsPanel
+              theme={theme}
+              onThemeChange={handleToggleTheme}
+              onClose={() => setShowSettings(false)}
+            />
+          ) : (
+            <div className="editor-area">
+              {sourceMode ? (
+                <SourceEditor content={content} onChange={setContent} />
+              ) : (
+                <Editor
+                  content={content}
+                  onChange={setContent}
+                  onSave={handleSave}
+                  onEditorReady={setEditorInstance}
+                  viewMode={viewMode}
+                />
+              )}
+            </div>
           )}
         </div>
+        <StatusBar
+          cursorPosition={cursorPosition}
+          wordCount={wordCount}
+          filePath={filePath}
+          isSynced={!isModified}
+          syncTime={new Date().toLocaleTimeString('zh-CN', { hour12: false })}
+        />
       </div>
     </EditorProvider>
   )

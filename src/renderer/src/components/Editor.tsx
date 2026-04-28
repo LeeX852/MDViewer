@@ -15,7 +15,7 @@ import Link from '@tiptap/extension-link'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
 import { Markdown } from 'tiptap-markdown'
-import { useEffect } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { MathInline } from '../extensions/MathInline'
 import { MathBlock } from '../extensions/MathBlock'
@@ -28,9 +28,16 @@ interface EditorProps {
   onChange: (content: string) => void
   onSave: () => void
   onEditorReady?: (editor: TiptapEditor) => void
+  viewMode: 'edit' | 'split'
 }
 
-export default function Editor({ content, onChange, onSave, onEditorReady }: EditorProps) {
+export default function Editor({ content, onChange, onSave, onEditorReady, viewMode }: EditorProps) {
+  const [sourceContent, setSourceContent] = useState(content)
+  const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
+  const sourceRef = useRef<HTMLTextAreaElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const isScrollingRef = useRef(false)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -65,6 +72,7 @@ export default function Editor({ content, onChange, onSave, onEditorReady }: Edi
     onUpdate: ({ editor }) => {
       const markdown = editor.storage.markdown.getMarkdown()
       onChange(markdown)
+      setSourceContent(markdown)
     },
     editorProps: {
       attributes: {
@@ -88,17 +96,128 @@ export default function Editor({ content, onChange, onSave, onEditorReady }: Edi
   }, [editor, onEditorReady])
 
   useEffect(() => {
-    if (editor && !editor.isFocused) {
+    if (editor) {
       const currentMarkdown = editor.storage.markdown.getMarkdown()
       if (currentMarkdown !== content) {
         editor.commands.setContent(content)
+        setSourceContent(content)
       }
     }
   }, [content, editor])
 
+  const handleSourceChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value
+    setSourceContent(newContent)
+    onChange(newContent)
+
+    const cursorPos = e.target.selectionStart
+    const lines = newContent.substring(0, cursorPos).split('\n')
+    setCursorPosition({
+      line: lines.length,
+      column: lines[lines.length - 1].length + 1
+    })
+  }, [onChange])
+
+  const handleSourceKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const textarea = sourceRef.current
+      if (!textarea) return
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const value = textarea.value
+      const newValue = value.substring(0, start) + '  ' + value.substring(end)
+      setSourceContent(newValue)
+      onChange(newValue)
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 2
+      })
+    }
+  }, [onChange])
+
+  const handleSourceScroll = useCallback(() => {
+    if (viewMode !== 'split' || isScrollingRef.current) return
+    isScrollingRef.current = true
+    const sourceEl = sourceRef.current
+    const previewEl = previewRef.current
+    if (sourceEl && previewEl) {
+      const scrollPercent = sourceEl.scrollTop / (sourceEl.scrollHeight - sourceEl.clientHeight)
+      previewEl.scrollTop = scrollPercent * (previewEl.scrollHeight - previewEl.clientHeight)
+    }
+    setTimeout(() => { isScrollingRef.current = false }, 50)
+  }, [viewMode])
+
+  const handlePreviewScroll = useCallback(() => {
+    if (viewMode !== 'split' || isScrollingRef.current) return
+    isScrollingRef.current = true
+    const sourceEl = sourceRef.current
+    const previewEl = previewRef.current
+    if (sourceEl && previewEl) {
+      const scrollPercent = previewEl.scrollTop / (previewEl.scrollHeight - previewEl.clientHeight)
+      sourceEl.scrollTop = scrollPercent * (sourceEl.scrollHeight - sourceEl.clientHeight)
+    }
+    setTimeout(() => { isScrollingRef.current = false }, 50)
+  }, [viewMode])
+
+  const lineNumbers = sourceContent.split('\n').map((_, i) => i + 1)
+
+  if (viewMode === 'edit') {
+    return (
+      <div className="editor-container edit-mode">
+        <div className="editor-toolbar">
+          <div className="editor-toolbar-right">
+            <span className="editor-cursor-info">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+          </div>
+        </div>
+        <div className="editor-panels single">
+          <div className="editor-preview-panel centered">
+            <div className="editor-wrapper">
+              <EditorContent editor={editor} />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="editor-wrapper">
-      <EditorContent editor={editor} />
+    <div className="editor-container split-mode">
+      <div className="editor-toolbar">
+        <div className="editor-toolbar-right">
+          <span className="editor-cursor-info">行 {cursorPosition.line}, 列 {cursorPosition.column}</span>
+        </div>
+      </div>
+
+      <div className="editor-panels split">
+        <div className="editor-source-panel">
+          <div className="line-numbers">
+            {lineNumbers.map(num => (
+              <div key={num} className="line-number">{num}</div>
+            ))}
+          </div>
+          <textarea
+            ref={sourceRef}
+            className="source-editor"
+            value={sourceContent}
+            onChange={handleSourceChange}
+            onKeyDown={handleSourceKeyDown}
+            onScroll={handleSourceScroll}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </div>
+
+        <div
+          ref={previewRef}
+          className="editor-preview-panel"
+          onScroll={handlePreviewScroll}
+        >
+          <div className="editor-wrapper">
+            <EditorContent editor={editor} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
