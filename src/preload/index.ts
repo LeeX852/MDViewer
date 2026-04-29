@@ -51,7 +51,17 @@ const api = {
   maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:maximize'),
   closeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:close'),
   isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:is-maximized'),
-  showAbout: (): Promise<boolean> => ipcRenderer.invoke('dialog:about')
+  showAbout: (): Promise<boolean> => ipcRenderer.invoke('dialog:about'),
+  snapshot: {
+    save: (filePath: string, content: string, label?: string) =>
+      ipcRenderer.invoke('snapshot:save', filePath, content, label),
+    list: (filePath: string) =>
+      ipcRenderer.invoke('snapshot:list', filePath),
+    get: (filePath: string, snapshotId: string) =>
+      ipcRenderer.invoke('snapshot:get', filePath, snapshotId),
+    delete: (filePath: string, snapshotId: string) =>
+      ipcRenderer.invoke('snapshot:delete', filePath, snapshotId)
+  }
 }
 
 console.log('[Preload] API object created')
