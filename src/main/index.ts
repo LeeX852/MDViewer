@@ -1,7 +1,13 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, dirname, basename, extname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { readFile, writeFile, readdir } from 'fs/promises'
+import { readFile, writeFile, readdir, mkdir, unlink } from 'fs/promises'
+import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+
+// Simple ID generator (no dependency needed)
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10)
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -216,6 +222,109 @@ function registerIpcHandlers(): void {
   ipcMain.handle('window:is-maximized', () => {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     return win ? win.isMaximized() : false
+  })
+
+  const SNAPSHOTS_DIR = join(app.getPath('userData'), 'snapshots')
+
+  async function ensureSnapshotsDir(): Promise<string> {
+    if (!existsSync(SNAPSHOTS_DIR)) {
+      mkdirSync(SNAPSHOTS_DIR, { recursive: true })
+    }
+    return SNAPSHOTS_DIR
+  }
+
+  function getSnapshotFilePath(filePath: string): string {
+    const safeFileName = filePath.replace(/[^a-zA-Z0-9_\-\\\/.]/g, '_').replace(/\\/g, '_').replace(/\//g, '_')
+    return join(SNAPSHOTS_DIR, safeFileName + '.snapshots.json')
+  }
+
+  interface SnapshotEntry {
+    id: string
+    timestamp: number
+    label: string
+    content: string
+  }
+
+  function loadSnapshots(filePath: string): SnapshotEntry[] {
+    const snapFile = getSnapshotFilePath(filePath)
+    if (!existsSync(snapFile)) return []
+    try {
+      const data = readFileSync(snapFile, 'utf-8')
+      return JSON.parse(data)
+    } catch {
+      return []
+    }
+  }
+
+  function saveSnapshots(filePath: string, snapshots: SnapshotEntry[]): void {
+    const snapFile = getSnapshotFilePath(filePath)
+    const dir = dirname(snapFile)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(snapFile, JSON.stringify(snapshots, null, 2), 'utf-8')
+  }
+
+  ipcMain.handle('snapshot:save', async (_event, filePath: string, content: string, label?: string) => {
+    try {
+      await ensureSnapshotsDir()
+      const snapshots = loadSnapshots(filePath)
+      const entry: SnapshotEntry = {
+        id: generateId(),
+        timestamp: Date.now(),
+        label: label || `版本 ${snapshots.length + 1}`,
+        content
+      }
+      snapshots.push(entry)
+      if (snapshots.length > 50) {
+        snapshots.splice(0, snapshots.length - 50)
+      }
+      saveSnapshots(filePath, snapshots)
+      return { id: entry.id, timestamp: entry.timestamp, label: entry.label }
+    } catch (err) {
+      console.error('snapshot:save error:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('snapshot:list', async (_event, filePath: string) => {
+    try {
+      await ensureSnapshotsDir()
+      const snapshots = loadSnapshots(filePath)
+      return snapshots.map(s => ({
+        id: s.id,
+        timestamp: s.timestamp,
+        label: s.label
+      }))
+    } catch (err) {
+      console.error('snapshot:list error:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('snapshot:get', async (_event, filePath: string, snapshotId: string) => {
+    try {
+      await ensureSnapshotsDir()
+      const snapshots = loadSnapshots(filePath)
+      const entry = snapshots.find(s => s.id === snapshotId)
+      return entry || null
+    } catch (err) {
+      console.error('snapshot:get error:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('snapshot:delete', async (_event, filePath: string, snapshotId: string) => {
+    try {
+      await ensureSnapshotsDir()
+      let snapshots = loadSnapshots(filePath)
+      snapshots = snapshots.filter(s => s.id !== snapshotId)
+      saveSnapshots(filePath, snapshots)
+      return true
+    } catch (err) {
+      console.error('snapshot:delete error:', err)
+      return false
+    }
   })
 
   ipcMain.handle('dialog:about', async () => {

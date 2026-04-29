@@ -136,5 +136,40 @@ export const ipc = {
       console.error('[IPC] showAbout failed:', error)
       throw error
     }
+  },
+
+  snapshot: {
+    async save(filePath: string, content: string, label?: string) {
+      try {
+        return await ensureAPI().snapshot.save(filePath, content, label)
+      } catch (error) {
+        console.error('[IPC] snapshot.save failed:', error)
+        throw error
+      }
+    },
+    async list(filePath: string) {
+      try {
+        return await ensureAPI().snapshot.list(filePath)
+      } catch (error) {
+        console.error('[IPC] snapshot.list failed:', error)
+        throw error
+      }
+    },
+    async get(filePath: string, snapshotId: string) {
+      try {
+        return await ensureAPI().snapshot.get(filePath, snapshotId)
+      } catch (error) {
+        console.error('[IPC] snapshot.get failed:', error)
+        throw error
+      }
+    },
+    async delete(filePath: string, snapshotId: string) {
+      try {
+        return await ensureAPI().snapshot.delete(filePath, snapshotId)
+      } catch (error) {
+        console.error('[IPC] snapshot.delete failed:', error)
+        throw error
+      }
+    }
   }
 }

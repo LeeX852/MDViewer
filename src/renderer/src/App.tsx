@@ -276,7 +276,18 @@ export default function App() {
           />
         )
       case 'git':
-        return <GitPanel width={sidebarWidth} />
+        return (
+          <GitPanel
+            width={sidebarWidth}
+            filePath={filePath}
+            content={content}
+            onRestoreSnapshot={(restoredContent) => {
+              setContent(restoredContent)
+              markSaved()
+            }}
+            onFileSelect={handleFileSelect}
+          />
+        )
       case 'trash':
         return <TrashPanel width={sidebarWidth} />
       default:

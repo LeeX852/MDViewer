@@ -1,46 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { ipc } from '../utils/ipc'
 
 interface GitPanelProps {
   width: number
+  filePath: string | null
+  content: string
+  onRestoreSnapshot: (content: string) => void
   onFileSelect?: (path: string) => void
 }
 
-interface GitFile {
+interface SnapshotMeta {
   id: string
-  name: string
-  path: string
-  status: 'modified' | 'added' | 'deleted' | 'untracked'
+  timestamp: number
+  label: string
 }
 
-const statusConfig = {
-  modified: { letter: 'M', color: '#f9e2af', label: '已修改' },
-  added: { letter: 'A', color: '#a6e3a1', label: '已添加' },
-  deleted: { letter: 'D', color: '#f38ba8', label: '已删除' },
-  untracked: { letter: 'U', color: '#6c7086', label: '未跟踪' },
-}
 
-// Mock data for demonstration
-const mockChangedFiles: GitFile[] = [
-  { id: '1', name: 'App.tsx', path: 'src/components/App.tsx', status: 'modified' },
-  { id: '2', name: 'utils.ts', path: 'src/utils.ts', status: 'modified' },
-  { id: '3', name: 'styles.css', path: 'src/styles/styles.css', status: 'modified' },
-  { id: '4', name: 'new-feature.tsx', path: 'src/features/new-feature.tsx', status: 'added' },
-  { id: '5', name: 'old-file.js', path: 'src/old-file.js', status: 'deleted' },
-  { id: '6', name: 'config.json', path: 'config.json', status: 'untracked' },
-]
-
-const mockStagedFiles: GitFile[] = [
-  { id: '7', name: 'README.md', path: 'README.md', status: 'modified' },
-]
-
-// SVG Icons
-const GitBranchIcon = () => (
+const HistoryIcon = () => (
   <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <line x1="6" y1="3" x2="6" y2="15" />
-    <circle cx="6" cy="18" r="3" />
-    <circle cx="6" cy="6" r="3" />
-    <path d="M18 9a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3v3" />
-    <circle cx="18" cy="18" r="3" />
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
   </svg>
 )
 
@@ -53,26 +32,6 @@ const RefreshIcon = () => (
   </svg>
 )
 
-const MoreIcon = () => (
-  <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <circle cx="12" cy="12" r="1" fill="currentColor" />
-    <circle cx="19" cy="12" r="1" fill="currentColor" />
-    <circle cx="5" cy="12" r="1" fill="currentColor" />
-  </svg>
-)
-
-const ChevronDownIcon = ({ className = '' }: { className?: string }) => (
-  <svg className={`git-panel-icon ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-)
-
-const ChevronRightIcon = ({ className = '' }: { className?: string }) => (
-  <svg className={`git-panel-icon ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-)
-
 const PlusIcon = () => (
   <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <line x1="12" y1="5" x2="12" y2="19" />
@@ -80,357 +39,216 @@ const PlusIcon = () => (
   </svg>
 )
 
-const MinusIcon = () => (
+const RestoreIcon = () => (
   <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <line x1="5" y1="12" x2="19" y2="12" />
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
   </svg>
 )
 
-const DiscardIcon = () => (
-  <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </svg>
-)
-
-const DownloadIcon = () => (
-  <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-)
-
-const UploadIcon = () => (
-  <svg className="git-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="17 8 12 3 7 8" />
-    <line x1="12" y1="3" x2="12" y2="15" />
-  </svg>
-)
-
-const FileIcon = () => (
+const ClockIcon = () => (
   <svg className="git-panel-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
   </svg>
 )
 
-export default function GitPanel({ width, onFileSelect }: GitPanelProps) {
-  const [commitMessage, setCommitMessage] = useState('')
-  const [isChangesExpanded, setIsChangesExpanded] = useState(true)
-  const [isStagedExpanded, setIsStagedExpanded] = useState(true)
-  const [hoveredFile, setHoveredFile] = useState<string | null>(null)
-  const [changedFiles] = useState<GitFile[]>(mockChangedFiles)
-  const [stagedFiles] = useState<GitFile[]>(mockStagedFiles)
+const EmptyStateIcon = () => (
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3 }}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+)
 
-  const handleCommit = () => {
-    if (commitMessage.trim()) {
-      // Mock commit action
-      console.log('Commit:', commitMessage)
-      setCommitMessage('')
+function formatTimestamp(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+
+  if (diff < minute) {
+    return '刚刚'
+  } else if (diff < hour) {
+    const minutes = Math.floor(diff / minute)
+    return `${minutes}分钟前`
+  } else if (diff < day) {
+    const hours = Math.floor(diff / hour)
+    return `${hours}小时前`
+  } else {
+    const date = new Date(timestamp)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+}
+
+export default function GitPanel({ width, filePath, content, onRestoreSnapshot }: GitPanelProps) {
+  const [snapshots, setSnapshots] = useState<SnapshotMeta[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [snapshotLabel, setSnapshotLabel] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+
+  const loadSnapshots = useCallback(async () => {
+    if (!filePath) {
+      setSnapshots([])
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const result = await ipc.snapshot.list(filePath)
+      const sorted = (result || []).sort((a: SnapshotMeta, b: SnapshotMeta) => b.timestamp - a.timestamp)
+      setSnapshots(sorted)
+    } catch (error) {
+      console.error('Failed to load snapshots:', error)
+      setSnapshots([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [filePath])
+
+  useEffect(() => {
+    loadSnapshots()
+  }, [loadSnapshots])
+
+  const handleCreateSnapshot = async () => {
+    if (!filePath || !content) return
+
+    setIsCreating(true)
+    try {
+      const label = snapshotLabel.trim() || `版本 ${snapshots.length + 1}`
+      await ipc.snapshot.save(filePath, content, label)
+      setSnapshotLabel('')
+      await loadSnapshots()
+    } catch (error) {
+      console.error('Failed to create snapshot:', error)
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleRestore = async (snapshotId: string) => {
+    if (!filePath) return
+
+    try {
+      const entry = await ipc.snapshot.get(filePath, snapshotId)
+      if (entry && entry.content) {
+        onRestoreSnapshot(entry.content)
+      }
+    } catch (error) {
+      console.error('Failed to restore snapshot:', error)
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.ctrlKey && e.key === 'Enter') {
-      handleCommit()
+    if (e.key === 'Enter' && filePath && !isCreating) {
+      handleCreateSnapshot()
     }
   }
 
-  const groupedChanges = {
-    modified: changedFiles.filter(f => f.status === 'modified'),
-    added: changedFiles.filter(f => f.status === 'added'),
-    deleted: changedFiles.filter(f => f.status === 'deleted'),
-    untracked: changedFiles.filter(f => f.status === 'untracked'),
-  }
-
-  const totalChanges = changedFiles.length
-  const totalStaged = stagedFiles.length
-
   return (
     <div className="git-panel" style={{ width, minWidth: width }}>
-      {/* Placeholder Banner */}
-      <div
-        className="git-panel-placeholder-banner"
-        style={{
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, rgba(249, 226, 175, 0.15) 0%, rgba(166, 227, 161, 0.1) 100%)',
-          borderBottom: '1px solid rgba(249, 226, 175, 0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '13px',
-          color: '#f9e2af',
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="6" y1="3" x2="6" y2="15" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="6" cy="6" r="3" />
-          <path d="M18 9a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3v3" />
-          <circle cx="18" cy="18" r="3" />
-        </svg>
-        <span>源代码管理功能开发中 - 将支持 Git 版本控制</span>
-      </div>
-
-      {/* Header */}
       <div className="git-panel-header">
         <div className="git-panel-header-title">
-          <GitBranchIcon />
-          <span>源代码管理</span>
+          <HistoryIcon />
+          <span>版本历史</span>
         </div>
         <div className="git-panel-header-actions">
-          <button className="git-panel-btn" title="刷新">
+          <button
+            className="git-panel-btn"
+            title="刷新"
+            onClick={loadSnapshots}
+            disabled={isLoading || !filePath}
+          >
             <RefreshIcon />
-          </button>
-          <button className="git-panel-btn" title="更多操作">
-            <MoreIcon />
           </button>
         </div>
       </div>
 
-      {/* Branch Selector */}
-      <div className="git-panel-branch">
-        <button className="git-panel-branch-btn">
-          <GitBranchIcon />
-          <span className="git-panel-branch-name">main</span>
-          <ChevronDownIcon className="git-panel-branch-chevron" />
-        </button>
-      </div>
-
-      {/* Commit Message */}
       <div className="git-panel-commit">
-        <textarea
+        <input
+          type="text"
           className="git-panel-commit-input"
-          placeholder="提交信息 (Ctrl+Enter 提交)"
-          value={commitMessage}
-          onChange={(e) => setCommitMessage(e.target.value)}
+          placeholder="快照描述（可选）"
+          value={snapshotLabel}
+          onChange={(e) => setSnapshotLabel(e.target.value)}
           onKeyDown={handleKeyDown}
-          rows={3}
+          disabled={!filePath || isCreating}
         />
         <div className="git-panel-commit-actions">
           <button
             className="git-panel-commit-btn"
-            onClick={handleCommit}
-            disabled={!commitMessage.trim() || totalStaged === 0}
+            onClick={handleCreateSnapshot}
+            disabled={!filePath || isCreating || !content}
           >
-            提交
-          </button>
-          <button className="git-panel-commit-dropdown" title="提交选项">
-            <ChevronDownIcon />
+            {isCreating ? '创建中...' : '创建快照'}
           </button>
         </div>
       </div>
 
-      {/* Changes Section */}
-      <div className="git-panel-section">
-        <div
-          className="git-panel-section-header"
-          onClick={() => setIsChangesExpanded(!isChangesExpanded)}
-        >
+      <div className="git-panel-section" style={{ flex: 1, overflow: 'auto' }}>
+        <div className="git-panel-section-header" style={{ cursor: 'default' }}>
           <div className="git-panel-section-title">
-            {isChangesExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-            <span>更改</span>
-            <span className="git-panel-count">({totalChanges})</span>
-          </div>
-          <div className="git-panel-section-actions">
-            <button className="git-panel-btn" title="暂存所有更改">
-              <PlusIcon />
-            </button>
-            <button className="git-panel-btn" title="放弃所有更改">
-              <DiscardIcon />
-            </button>
+            <span>历史版本</span>
+            <span className="git-panel-count">({snapshots.length})</span>
           </div>
         </div>
 
-        {isChangesExpanded && (
+        {isLoading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            加载中...
+          </div>
+        ) : snapshots.length === 0 ? (
+          <div
+            style={{
+              padding: '48px 24px',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px'
+            }}
+          >
+            <EmptyStateIcon />
+            <span>暂无版本历史</span>
+            {filePath && (
+              <span style={{ fontSize: '12px', opacity: 0.7 }}>
+                创建第一个快照来保存当前版本
+              </span>
+            )}
+          </div>
+        ) : (
           <div className="git-panel-file-list">
-            {/* Modified Files */}
-            {groupedChanges.modified.map((file) => (
+            {snapshots.map((snapshot) => (
               <div
-                key={file.id}
+                key={snapshot.id}
                 className="git-panel-file-item"
-                onMouseEnter={() => setHoveredFile(file.id)}
-                onMouseLeave={() => setHoveredFile(null)}
-                onClick={() => onFileSelect?.(file.path)}
+                style={{ marginBottom: '8px' }}
               >
-                <div className="git-panel-file-status" style={{ color: statusConfig.modified.color }}>
-                  {statusConfig.modified.letter}
-                </div>
-                <FileIcon />
+                <ClockIcon />
                 <div className="git-panel-file-info">
-                  <span className="git-panel-file-name">{file.name}</span>
-                  <span className="git-panel-file-path">{file.path}</span>
+                  <span className="git-panel-file-name">{snapshot.label}</span>
+                  <span className="git-panel-file-path">{formatTimestamp(snapshot.timestamp)}</span>
                 </div>
-                {hoveredFile === file.id && (
-                  <div className="git-panel-file-actions">
-                    <button className="git-panel-btn" title="暂存">
-                      <PlusIcon />
-                    </button>
-                    <button className="git-panel-btn" title="放弃更改">
-                      <DiscardIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Added Files */}
-            {groupedChanges.added.map((file) => (
-              <div
-                key={file.id}
-                className="git-panel-file-item"
-                onMouseEnter={() => setHoveredFile(file.id)}
-                onMouseLeave={() => setHoveredFile(null)}
-                onClick={() => onFileSelect?.(file.path)}
-              >
-                <div className="git-panel-file-status" style={{ color: statusConfig.added.color }}>
-                  {statusConfig.added.letter}
+                <div className="git-panel-file-actions">
+                  <button
+                    className="git-panel-btn"
+                    title="恢复此版本"
+                    onClick={() => handleRestore(snapshot.id)}
+                  >
+                    <RestoreIcon />
+                  </button>
                 </div>
-                <FileIcon />
-                <div className="git-panel-file-info">
-                  <span className="git-panel-file-name">{file.name}</span>
-                  <span className="git-panel-file-path">{file.path}</span>
-                </div>
-                {hoveredFile === file.id && (
-                  <div className="git-panel-file-actions">
-                    <button className="git-panel-btn" title="暂存">
-                      <PlusIcon />
-                    </button>
-                    <button className="git-panel-btn" title="放弃更改">
-                      <DiscardIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Deleted Files */}
-            {groupedChanges.deleted.map((file) => (
-              <div
-                key={file.id}
-                className="git-panel-file-item"
-                onMouseEnter={() => setHoveredFile(file.id)}
-                onMouseLeave={() => setHoveredFile(null)}
-              >
-                <div className="git-panel-file-status" style={{ color: statusConfig.deleted.color }}>
-                  {statusConfig.deleted.letter}
-                </div>
-                <FileIcon />
-                <div className="git-panel-file-info">
-                  <span className="git-panel-file-name">{file.name}</span>
-                  <span className="git-panel-file-path">{file.path}</span>
-                </div>
-                {hoveredFile === file.id && (
-                  <div className="git-panel-file-actions">
-                    <button className="git-panel-btn" title="暂存">
-                      <PlusIcon />
-                    </button>
-                    <button className="git-panel-btn" title="放弃更改">
-                      <DiscardIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* Untracked Files */}
-            {groupedChanges.untracked.map((file) => (
-              <div
-                key={file.id}
-                className="git-panel-file-item"
-                onMouseEnter={() => setHoveredFile(file.id)}
-                onMouseLeave={() => setHoveredFile(null)}
-              >
-                <div className="git-panel-file-status" style={{ color: statusConfig.untracked.color }}>
-                  {statusConfig.untracked.letter}
-                </div>
-                <FileIcon />
-                <div className="git-panel-file-info">
-                  <span className="git-panel-file-name">{file.name}</span>
-                  <span className="git-panel-file-path">{file.path}</span>
-                </div>
-                {hoveredFile === file.id && (
-                  <div className="git-panel-file-actions">
-                    <button className="git-panel-btn" title="暂存">
-                      <PlusIcon />
-                    </button>
-                    <button className="git-panel-btn" title="放弃更改">
-                      <DiscardIcon />
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* Staged Changes Section */}
-      <div className="git-panel-section">
-        <div
-          className="git-panel-section-header"
-          onClick={() => setIsStagedExpanded(!isStagedExpanded)}
-        >
-          <div className="git-panel-section-title">
-            {isStagedExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-            <span>暂存的更改</span>
-            <span className="git-panel-count">({totalStaged})</span>
-          </div>
-          <div className="git-panel-section-actions">
-            <button className="git-panel-btn" title="取消暂存所有">
-              <MinusIcon />
-            </button>
-          </div>
-        </div>
-
-        {isStagedExpanded && (
-          <div className="git-panel-file-list">
-            {stagedFiles.map((file) => (
-              <div
-                key={file.id}
-                className="git-panel-file-item staged"
-                onMouseEnter={() => setHoveredFile(`staged-${file.id}`)}
-                onMouseLeave={() => setHoveredFile(null)}
-                onClick={() => onFileSelect?.(file.path)}
-              >
-                <div className="git-panel-file-status" style={{ color: statusConfig[file.status].color }}>
-                  {statusConfig[file.status].letter}
-                </div>
-                <FileIcon />
-                <div className="git-panel-file-info">
-                  <span className="git-panel-file-name">{file.name}</span>
-                  <span className="git-panel-file-path">{file.path}</span>
-                </div>
-                {hoveredFile === `staged-${file.id}` && (
-                  <div className="git-panel-file-actions">
-                    <button className="git-panel-btn" title="取消暂存">
-                      <MinusIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Sync Widget */}
-      <div className="git-panel-sync">
-        <div className="git-panel-sync-header">
-          <div className="git-panel-sync-stats">
-            <span className="git-panel-sync-item">
-              <DownloadIcon />
-              <span>1</span>
-            </span>
-            <span className="git-panel-sync-item">
-              <UploadIcon />
-              <span>0</span>
-            </span>
-          </div>
-          <span className="git-panel-sync-time">上次同步: 2分钟前</span>
-        </div>
       </div>
     </div>
   )
