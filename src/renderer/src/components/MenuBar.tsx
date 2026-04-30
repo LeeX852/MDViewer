@@ -31,6 +31,9 @@ interface MenuBarProps {
   onOpenFolder: () => void
   onSave: () => void
   onSaveAs: () => void
+  onExportPDF: () => void
+  onExportHTML: () => void
+  onFind: () => void
   onToggleSidebar: () => void
   onToggleTheme: () => void
   onToggleFocusMode: () => void
@@ -53,6 +56,9 @@ export default function MenuBar({
   onOpenFolder,
   onSave,
   onSaveAs,
+  onExportPDF,
+  onExportHTML,
+  onFind,
   onToggleSidebar,
   onToggleTheme,
   onToggleFocusMode,
@@ -64,6 +70,11 @@ export default function MenuBar({
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
+  const [inputModal, setInputModal] = useState<{
+    title: string
+    placeholder: string
+    onConfirm: (value: string) => void
+  } | null>(null)
   const menuBarRef = useRef<HTMLDivElement>(null)
 
   const closeMenu = useCallback(() => setOpenMenu(null), [])
@@ -124,6 +135,9 @@ export default function MenuBar({
         { label: '', separator: true },
         { label: '保存', shortcut: 'Ctrl+S', action: onSave },
         { label: '另存为...', shortcut: 'Ctrl+Shift+S', action: onSaveAs },
+        { label: '', separator: true },
+        { label: '导出为 PDF...', action: onExportPDF },
+        { label: '导出为 HTML...', action: onExportHTML },
       ]
     },
     {
@@ -144,7 +158,7 @@ export default function MenuBar({
         { label: '', separator: true },
         { label: '全选', shortcut: 'Ctrl+A', action: () => editor?.chain().focus().selectAll().run() },
         { label: '', separator: true },
-        { label: '查找', shortcut: 'Ctrl+F', disabled: true },
+        { label: '查找', shortcut: 'Ctrl+F', action: onFind },
       ]
     },
     {
@@ -189,12 +203,18 @@ export default function MenuBar({
         { label: '右对齐', action: () => editor?.chain().focus().setTextAlign('right').run() },
         { label: '', separator: true },
         { label: '插入图片', action: () => {
-          const url = prompt('图片 URL:')
-          if (url) editor?.chain().focus().setImage({ src: url }).run()
+          setInputModal({
+            title: '插入图片',
+            placeholder: '输入图片 URL...',
+            onConfirm: (url) => { if (url.trim()) editor?.chain().focus().setImage({ src: url.trim() }).run() }
+          })
         }},
         { label: '插入链接', shortcut: 'Ctrl+K', action: () => {
-          const url = prompt('链接 URL:')
-          if (url) editor?.chain().focus().setLink({ href: url }).run()
+          setInputModal({
+            title: '插入链接',
+            placeholder: '输入链接 URL...',
+            onConfirm: (url) => { if (url.trim()) editor?.chain().focus().setLink({ href: url.trim() }).run() }
+          })
         }},
         { label: '取消链接', action: () => editor?.chain().focus().unsetLink().run(), disabled: !editor?.isActive('link') },
       ]
@@ -437,6 +457,35 @@ export default function MenuBar({
                 © 2026 MDViewer<br />
                 保留所有权利
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {inputModal && (
+        <div className="input-modal-overlay" onClick={() => setInputModal(null)}>
+          <div className="input-modal" onClick={e => e.stopPropagation()}>
+            <h3>{inputModal.title}</h3>
+            <input
+              type="text"
+              className="input-modal-input"
+              placeholder={inputModal.placeholder}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  inputModal.onConfirm((e.target as HTMLInputElement).value)
+                  setInputModal(null)
+                } else if (e.key === 'Escape') {
+                  setInputModal(null)
+                }
+              }}
+            />
+            <div className="input-modal-actions">
+              <button onClick={() => setInputModal(null)}>取消</button>
+              <button onClick={() => {
+                const input = document.querySelector('.input-modal-input') as HTMLInputElement
+                if (input) inputModal.onConfirm(input.value)
+                setInputModal(null)
+              }}>确认</button>
             </div>
           </div>
         </div>

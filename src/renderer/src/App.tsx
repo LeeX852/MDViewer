@@ -10,14 +10,49 @@ import SettingsPanel from './components/SettingsPanel'
 import Editor from './components/Editor'
 import SourceEditor from './components/SourceEditor'
 import ResizeHandle from './components/ResizeHandle'
+import TabBar from './components/TabBar'
 import { EditorProvider } from './hooks/useEditorContext'
-import { useEditorState } from './hooks/useEditorState'
+import { useTabsState } from './hooks/useTabsState'
 import { ipc } from './utils/ipc'
-import type { DirNode } from '../../preload/index.d'
+import type { DirNode, AppSettings } from '../../preload/index.d'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 
 type ThemeMode = 'dark' | 'light'
 type SidebarView = 'files' | 'search' | 'git' | 'trash'
+
+const DEFAULT_SETTINGS: AppSettings = {
+  language: 'zh-CN',
+  encoding: 'UTF-8',
+  autoSave: true,
+  autoSaveInterval: 2000,
+  startupMode: 'welcome',
+  fileAssociation: true,
+  theme: 'dark',
+  fontFamily: 'system',
+  editorFontSize: 14,
+  uiFontSize: 14,
+  lineHeight: 1.6,
+  sidebarPosition: 'left',
+  tabSize: 2,
+  wordWrap: true,
+  showLineNumbers: true,
+  spellCheck: false,
+  syntaxHighlight: true
+}
+
+function applySettingsToCSS(s: AppSettings): void {
+  const root = document.documentElement
+  root.style.setProperty('--editor-font-size', `${s.editorFontSize}px`)
+  root.style.setProperty('--ui-font-size', `${s.uiFontSize}px`)
+  root.style.setProperty('--editor-line-height', String(s.lineHeight))
+  const fontMap: Record<string, string> = {
+    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    serif: '"Georgia", "Times New Roman", serif',
+    sans: '"Helvetica Neue", "Arial", sans-serif',
+    mono: '"SFMono-Regular", Consolas, "Courier New", monospace'
+  }
+  root.style.setProperty('--editor-font-family', fontMap[s.fontFamily] || fontMap.system)
+}
 
 export default function App() {
   useEffect(() => {
@@ -31,16 +66,30 @@ export default function App() {
   const [editorInstance, setEditorInstance] = useState<TiptapEditor | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [viewMode, setViewMode] = useState<'edit' | 'split'>('edit')
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
 
   const {
-    content,
-    filePath,
-    isModified,
+    tabs,
+    activeTab,
+    activeTabId,
     setContent,
     setFilePath,
     markSaved,
-    headings
-  } = useEditorState()
+    openNewTab,
+    closeTab,
+    activateTab,
+    findTabByPath
+  } = useTabsState()
+
+  const content = activeTab.content
+  const filePath = activeTab.filePath
+  const isModified = activeTab.isModified
+  const headings = activeTab.headings
+
+  const contentRef = useRef(content)
+  const filePathRef = useRef(filePath)
+  useEffect(() => { contentRef.current = content }, [content])
+  useEffect(() => { filePathRef.current = filePath }, [filePath])
 
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [activeView, setActiveView] = useState<SidebarView>('files')
@@ -55,12 +104,23 @@ export default function App() {
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
 
   useEffect(() => {
+    window.api.settings.load().then(s => {
+      setAppSettings(s)
+      setTheme(s.theme)
+      applySettingsToCSS(s)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
   useEffect(() => {
     if (focusMode) {
       setSidebarVisible(false)
+      document.documentElement.style.setProperty('--tab-bar-height', '0px')
+    } else {
+      document.documentElement.style.setProperty('--tab-bar-height', '36px')
     }
   }, [focusMode])
 
@@ -114,52 +174,116 @@ export default function App() {
     }
   }, [editorInstance, typewriterMode])
 
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    try {
+      const currentPath = filePathRef.current
+      const currentContent = contentRef.current
+      if (currentPath) {
+        const ok = await ipc.saveFile(currentPath, currentContent)
+        if (ok) {
+          markSaved()
+          return true
+        }
+        return false
+      } else {
+        const savedPath = await ipc.saveFileAs(currentContent)
+        if (savedPath) {
+          setFilePath(savedPath)
+          markSaved()
+          return true
+        }
+        return false
+      }
+    } catch (error) {
+      console.error('[App] Failed to save file:', error)
+      return false
+    }
+  }, [markSaved, setFilePath])
+
+  const handleExportPDF = useCallback(async () => {
+    try {
+      await window.api.exportPDF(filePathRef.current)
+    } catch (error) {
+      console.error('[App] Export PDF failed:', error)
+    }
+  }, [])
+
+  const handleExportHTML = useCallback(async () => {
+    try {
+      const bodyHTML = editorInstance?.getHTML() ?? ''
+      const title = filePathRef.current
+        ? (filePathRef.current.split(/[/\\]/).pop() ?? 'Document')
+        : 'Document'
+      const katexCSS = 'https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css'
+      const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>${title.replace(/</g, '&lt;')}</title>
+<link rel="stylesheet" href="${katexCSS}">
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 860px; margin: 2em auto; padding: 0 1.5em; line-height: 1.7; color: #24292f; }
+h1, h2, h3, h4, h5, h6 { margin-top: 1.6em; margin-bottom: 0.6em; font-weight: 600; }
+h1 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+code { background: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.9em; }
+pre { background: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto; }
+pre code { background: transparent; padding: 0; }
+blockquote { border-left: 0.25em solid #d0d7de; padding: 0 1em; color: #57606a; margin: 1em 0; }
+table { border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #d0d7de; padding: 0.5em 0.8em; }
+th { background: #f6f8fa; }
+img { max-width: 100%; }
+ul.task-list { list-style: none; padding-left: 1.2em; }
+ul.task-list li { position: relative; }
+hr { border: none; border-top: 1px solid #d0d7de; margin: 2em 0; }
+a { color: #0969da; text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+${bodyHTML}
+</body>
+</html>`
+      await window.api.exportHTML(html, filePathRef.current)
+    } catch (error) {
+      console.error('[App] Export HTML failed:', error)
+    }
+  }, [editorInstance])
+
+  const handleSaveAs = useCallback(async (): Promise<boolean> => {
+    try {
+      const savedPath = await ipc.saveFileAs(contentRef.current)
+      if (savedPath) {
+        setFilePath(savedPath)
+        markSaved()
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('[App] Failed to save as:', error)
+      return false
+    }
+  }, [markSaved, setFilePath])
+
   const handleNewFile = useCallback(() => {
-    setContent('')
-    setFilePath(null)
-    markSaved()
-  }, [setContent, setFilePath, markSaved])
+    openNewTab({ content: '', filePath: null })
+  }, [openNewTab])
 
   const handleOpenFile = useCallback(async () => {
     try {
       const result = await ipc.openFile()
-      if (result) {
-        setContent(result.content)
-        setFilePath(result.filePath)
+      if (!result) return
+      const existing = findTabByPath(result.filePath)
+      if (existing) {
+        activateTab(existing.id)
+        return
       }
+      openNewTab({ content: result.content, filePath: result.filePath })
     } catch (error) {
       console.error('[App] Failed to open file:', error)
     }
-  }, [setContent, setFilePath])
-
-  const handleSave = useCallback(async () => {
-    try {
-      if (filePath) {
-        await ipc.saveFile(filePath, content)
-        markSaved()
-      } else {
-        const savedPath = await ipc.saveFileAs(content)
-        if (savedPath) {
-          setFilePath(savedPath)
-          markSaved()
-        }
-      }
-    } catch (error) {
-      console.error('[App] Failed to save file:', error)
-    }
-  }, [filePath, content, markSaved, setFilePath])
-
-  const handleSaveAs = useCallback(async () => {
-    try {
-      const savedPath = await ipc.saveFileAs(content)
-      if (savedPath) {
-        setFilePath(savedPath)
-        markSaved()
-      }
-    } catch (error) {
-      console.error('[App] Failed to save as:', error)
-    }
-  }, [content, markSaved, setFilePath])
+  }, [openNewTab, findTabByPath, activateTab])
 
   const handleOpenFolder = useCallback(async () => {
     const folder = await window.api.openFolder()
@@ -171,16 +295,75 @@ export default function App() {
   }, [])
 
   const handleFileSelect = useCallback(async (path: string) => {
+    const existing = findTabByPath(path)
+    if (existing) {
+      activateTab(existing.id)
+      return
+    }
     const fileContent = await window.api.readFile(path)
     if (fileContent !== null) {
-      setContent(fileContent)
-      setFilePath(path)
+      openNewTab({ content: fileContent, filePath: path })
     }
-  }, [setContent, setFilePath])
+  }, [openNewTab, findTabByPath, activateTab])
+
+  const handleRequestCloseTab = useCallback(async (id: string) => {
+    const target = tabs.find(t => t.id === id)
+    if (!target) return
+    if (target.isModified) {
+      const name = target.filePath
+        ? (target.filePath.split(/[/\\]/).pop() ?? '未命名')
+        : '未命名'
+      const choice = await window.api.confirmUnsaved(name)
+      if (choice === 'cancel') return
+      if (choice === 'save') {
+        if (target.id !== activeTabId) activateTab(target.id)
+        const ok = await handleSave()
+        if (!ok) return
+      }
+    }
+    closeTab(id)
+  }, [tabs, activeTabId, activateTab, closeTab, handleSave])
 
   const handleToggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+    setTheme(prev => {
+      const next: 'dark' | 'light' = prev === 'dark' ? 'light' : 'dark'
+      setAppSettings(s => {
+        const updated: AppSettings = { ...s, theme: next }
+        window.api.settings.save(updated).catch(() => {})
+        return updated
+      })
+      return next
+    })
   }, [])
+
+  const handleSettingsChange = useCallback((newSettings: AppSettings) => {
+    setAppSettings(newSettings)
+    setTheme(newSettings.theme)
+    applySettingsToCSS(newSettings)
+  }, [])
+
+  const tabsRef = useRef(tabs)
+  useEffect(() => { tabsRef.current = tabs }, [tabs])
+
+  useEffect(() => {
+    const off = window.api.onRequestClose(async () => {
+      const dirty = tabsRef.current.filter(t => t.isModified)
+      for (const t of dirty) {
+        const name = t.filePath
+          ? (t.filePath.split(/[/\\]/).pop() ?? '未命名')
+          : '未命名'
+        activateTab(t.id)
+        const choice = await window.api.confirmUnsaved(name)
+        if (choice === 'cancel') return
+        if (choice === 'save') {
+          const ok = await handleSave()
+          if (!ok) return
+        }
+      }
+      window.api.forceCloseWindow()
+    })
+    return off
+  }, [activateTab, handleSave])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -203,6 +386,10 @@ export default function App() {
         } else if (e.key === '\\') {
           e.preventDefault()
           setSidebarVisible(v => !v)
+        } else if (e.key === 'f' && !e.shiftKey) {
+          e.preventDefault()
+          setActiveView('search')
+          setSidebarVisible(true)
         }
       }
       if (e.key === 'F8') {
@@ -237,11 +424,20 @@ export default function App() {
 
   const wordCount = useMemo(() => {
     if (!content) return 0
-    const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length
-    const englishWords = content
-      .replace(/[\u4e00-\u9fa5]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 0 && /[a-zA-Z]/.test(w)).length
+    const plain = content
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/\[([^\]]*)\]\(.*?\)/g, '$1')
+      .replace(/(`{1,3})[^`]*\1/g, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/[*_~`>|+\-]/g, '')
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+    const chineseChars = (plain.match(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g) || []).length
+    const englishWords = plain
+      .replace(/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/g, ' ')
+      .split(/[\s\p{P}]+/u)
+      .filter(w => w.length > 0 && /[a-zA-Z0-9]/.test(w)).length
     return chineseChars + englishWords
   }, [content])
 
@@ -265,13 +461,21 @@ export default function App() {
             width={sidebarWidth}
             content={content}
             onFileSelect={handleFileSelect}
-            onReplace={(search, replacement) => {
+            onReplace={(pattern, flags, replacement) => {
               try {
-                const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+                const regex = new RegExp(pattern, flags)
                 setContent(content.replace(regex, replacement))
-              } catch {
-                setContent(content.split(search).join(replacement))
-              }
+              } catch {}
+            }}
+            onNavigateToLine={(lineNumber) => {
+              if (!editorInstance) return
+              const lines = content.split('\n')
+              const offset = lines.slice(0, lineNumber - 1).join('\n').length + 1
+              const docSize = editorInstance.state.doc.content.size
+              const pos = Math.min(offset, docSize - 1)
+              try {
+                editorInstance.chain().setTextSelection(Math.max(1, pos)).scrollIntoView().run()
+              } catch {}
             }}
           />
         )
@@ -312,6 +516,9 @@ export default function App() {
           onOpenFolder={handleOpenFolder}
           onSave={handleSave}
           onSaveAs={handleSaveAs}
+          onExportPDF={handleExportPDF}
+          onExportHTML={handleExportHTML}
+          onFind={() => { setActiveView('search'); setSidebarVisible(true) }}
           onToggleSidebar={() => setSidebarVisible(v => !v)}
           onToggleTheme={handleToggleTheme}
           onToggleFocusMode={() => setFocusMode(v => !v)}
@@ -319,13 +526,22 @@ export default function App() {
           onToggleSourceMode={() => setSourceMode(v => !v)}
           onViewModeChange={setViewMode}
         />
+        {!focusMode && (
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onActivate={activateTab}
+            onClose={handleRequestCloseTab}
+            onNewTab={handleNewFile}
+          />
+        )}
         <div className={`main-content ${focusMode ? 'focus-mode' : ''}`}>
           {showIconRail && (
             <IconRail
               activeView={activeView}
               onViewChange={handleViewChange}
               onOpenSettings={() => setShowSettings(true)}
-              onOpenHelp={() => {}}
+              onOpenHelp={() => setShowSettings(true)}
             />
           )}
           {showSidebar && (
@@ -339,6 +555,8 @@ export default function App() {
               theme={theme}
               onThemeChange={handleToggleTheme}
               onClose={() => setShowSettings(false)}
+              settings={appSettings}
+              onSettingsChange={handleSettingsChange}
             />
           ) : (
             <div className="editor-area">
@@ -351,6 +569,7 @@ export default function App() {
                   onSave={handleSave}
                   onEditorReady={setEditorInstance}
                   viewMode={viewMode}
+                  currentFilePath={filePath}
                 />
               )}
             </div>
@@ -360,8 +579,6 @@ export default function App() {
           cursorPosition={cursorPosition}
           wordCount={wordCount}
           filePath={filePath}
-          isSynced={!isModified}
-          syncTime={new Date().toLocaleTimeString('zh-CN', { hour12: false })}
         />
       </div>
     </EditorProvider>

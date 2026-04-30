@@ -12,17 +12,23 @@ export function useEditorState() {
   const [isModified, setIsModified] = useState(false)
   const [headings, setHeadings] = useState<Heading[]>([])
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedContentRef = useRef<string>('')
 
   const setContent = useCallback((newContent: string) => {
     setContentInternal(newContent)
-    setIsModified(true)
+    setIsModified(newContent !== lastSavedContentRef.current)
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
     }
     saveTimeoutRef.current = setTimeout(() => {
       if (filePath) {
-        window.api.saveFile(filePath, newContent)
+        window.api.saveFile(filePath, newContent).then((ok) => {
+          if (ok) {
+            lastSavedContentRef.current = newContent
+            setIsModified(false)
+          }
+        }).catch(() => {})
       }
     }, 2000)
 
@@ -44,6 +50,12 @@ export function useEditorState() {
   }, [filePath])
 
   const markSaved = useCallback(() => {
+    lastSavedContentRef.current = content
+    setIsModified(false)
+  }, [content])
+
+  const setBaseline = useCallback((baseline: string) => {
+    lastSavedContentRef.current = baseline
     setIsModified(false)
   }, [])
 
@@ -54,6 +66,7 @@ export function useEditorState() {
     setContent,
     setFilePath,
     markSaved,
+    setBaseline,
     headings
   }
 }

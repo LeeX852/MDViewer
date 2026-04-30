@@ -10,6 +10,7 @@ function generateId(): string {
 }
 
 let mainWindow: BrowserWindow | null = null
+let forceQuit = false
 
 function createWindow(): void {
   const preloadPath = app.isPackaged
@@ -44,6 +45,12 @@ function createWindow(): void {
     console.log('[Main] ready-to-show event fired')
     mainWindow!.show()
     console.log('[Main] window shown, isVisible:', mainWindow!.isVisible())
+  })
+
+  mainWindow.on('close', (event) => {
+    if (forceQuit) return
+    event.preventDefault()
+    mainWindow?.webContents.send('app:request-close')
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -218,6 +225,35 @@ function registerIpcHandlers(): void {
     }
     return true
   })
+
+  ipcMain.handle('window:force-close', () => {
+    forceQuit = true
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (win) {
+      win.close()
+    }
+    return true
+  })
+
+  ipcMain.handle('dialog:confirm-unsaved', async (_event, fileName?: string) => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    const options: Electron.MessageBoxOptions = {
+      type: 'warning',
+      title: '未保存的更改',
+      message: fileName ? `"${fileName}" 有未保存的更改` : '当前文件有未保存的更改',
+      detail: '是否保存后再继续？',
+      buttons: ['保存', '不保存', '取消'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true
+    }
+    const result = win
+      ? await dialog.showMessageBox(win, options)
+      : await dialog.showMessageBox(options)
+    if (result.response === 0) return 'save'
+    if (result.response === 1) return 'discard'
+    return 'cancel'
+  })
   
   ipcMain.handle('window:is-maximized', () => {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
@@ -324,6 +360,207 @@ function registerIpcHandlers(): void {
     } catch (err) {
       console.error('snapshot:delete error:', err)
       return false
+    }
+  })
+
+  const SETTINGS_PATH = join(app.getPath('userData'), 'settings.json')
+
+  const DEFAULT_SETTINGS = {
+    language: 'zh-CN',
+    encoding: 'UTF-8',
+    autoSave: true,
+    autoSaveInterval: 2000,
+    startupMode: 'welcome' as const,
+    fileAssociation: true,
+    theme: 'dark' as const,
+    fontFamily: 'system',
+    editorFontSize: 14,
+    uiFontSize: 14,
+    lineHeight: 1.6,
+    sidebarPosition: 'left' as const,
+    tabSize: 2 as const,
+    wordWrap: true,
+    showLineNumbers: true,
+    spellCheck: false,
+    syntaxHighlight: true
+  }
+
+  ipcMain.handle('settings:load', async () => {
+    try {
+      if (!existsSync(SETTINGS_PATH)) return DEFAULT_SETTINGS
+      const data = readFileSync(SETTINGS_PATH, 'utf-8')
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) }
+    } catch { return DEFAULT_SETTINGS }
+  })
+
+  ipcMain.handle('settings:save', async (_event, settings: Record<string, unknown>) => {
+    try {
+      writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8')
+      return true
+    } catch (err) { console.error('settings:save error:', err); return false }
+  })
+
+  const TRASH_DIR = join(app.getPath('userData'), '.mdviewer-trash')
+  const TRASH_MANIFEST = join(TRASH_DIR, 'manifest.json')
+
+  interface TrashEntry { id: string; name: string; originalPath: string; deletedAt: number; size: number; storedName: string }
+
+  function loadTrashManifest(): TrashEntry[] {
+    if (!existsSync(TRASH_MANIFEST)) return []
+    try { return JSON.parse(readFileSync(TRASH_MANIFEST, 'utf-8')) } catch { return [] }
+  }
+
+  function saveTrashManifest(entries: TrashEntry[]): void {
+    if (!existsSync(TRASH_DIR)) mkdirSync(TRASH_DIR, { recursive: true })
+    writeFileSync(TRASH_MANIFEST, JSON.stringify(entries, null, 2), 'utf-8')
+  }
+
+  ipcMain.handle('trash:list', async () => {
+    try {
+      return loadTrashManifest().map(({ id, name, originalPath, deletedAt, size }) => ({ id, name, originalPath, deletedAt, size }))
+    } catch { return [] }
+  })
+
+  ipcMain.handle('trash:move-to-trash', async (_event, filePath: string) => {
+    try {
+      if (!existsSync(TRASH_DIR)) mkdirSync(TRASH_DIR, { recursive: true })
+      const content = await readFile(filePath, 'utf-8')
+      const id = generateId()
+      const storedName = `${id}-${basename(filePath)}`
+      const storedPath = join(TRASH_DIR, storedName)
+      await writeFile(storedPath, content, 'utf-8')
+      const stats = { size: Buffer.byteLength(content, 'utf-8') }
+      const entries = loadTrashManifest()
+      entries.push({ id, name: basename(filePath), originalPath: filePath, deletedAt: Date.now(), size: stats.size, storedName })
+      saveTrashManifest(entries)
+      await unlink(filePath)
+      return true
+    } catch (err) { console.error('trash:move-to-trash error:', err); return false }
+  })
+
+  ipcMain.handle('trash:restore', async (_event, id: string) => {
+    try {
+      const entries = loadTrashManifest()
+      const entry = entries.find(e => e.id === id)
+      if (!entry) return false
+      const storedPath = join(TRASH_DIR, entry.storedName)
+      if (!existsSync(storedPath)) return false
+      const content = await readFile(storedPath, 'utf-8')
+      const dir = dirname(entry.originalPath)
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+      await writeFile(entry.originalPath, content, 'utf-8')
+      await unlink(storedPath)
+      saveTrashManifest(entries.filter(e => e.id !== id))
+      return true
+    } catch (err) { console.error('trash:restore error:', err); return false }
+  })
+
+  ipcMain.handle('trash:permanent-delete', async (_event, id: string) => {
+    try {
+      const entries = loadTrashManifest()
+      const entry = entries.find(e => e.id === id)
+      if (!entry) return false
+      const storedPath = join(TRASH_DIR, entry.storedName)
+      if (existsSync(storedPath)) await unlink(storedPath)
+      saveTrashManifest(entries.filter(e => e.id !== id))
+      return true
+    } catch (err) { console.error('trash:permanent-delete error:', err); return false }
+  })
+
+  ipcMain.handle('trash:empty', async () => {
+    try {
+      const entries = loadTrashManifest()
+      for (const entry of entries) {
+        const storedPath = join(TRASH_DIR, entry.storedName)
+        if (existsSync(storedPath)) await unlink(storedPath)
+      }
+      saveTrashManifest([])
+      return true
+    } catch (err) { console.error('trash:empty error:', err); return false }
+  })
+
+  ipcMain.handle('image:save', async (_event, args: { data: ArrayBuffer | Uint8Array | number[]; extension: string; currentFilePath: string | null }) => {
+    try {
+      const { data, extension, currentFilePath } = args
+      let targetDir: string
+      let relativeBase: string
+      if (currentFilePath) {
+        targetDir = join(dirname(currentFilePath), 'assets')
+        relativeBase = 'assets'
+      } else {
+        targetDir = join(app.getPath('userData'), 'images')
+        relativeBase = targetDir
+      }
+      if (!existsSync(targetDir)) {
+        mkdirSync(targetDir, { recursive: true })
+      }
+      const ext = extension.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'png'
+      const fileName = `image-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const fullPath = join(targetDir, fileName)
+      const buffer = Buffer.isBuffer(data)
+        ? data
+        : data instanceof Uint8Array
+          ? Buffer.from(data)
+          : Buffer.from(new Uint8Array(data as number[]))
+      await writeFile(fullPath, buffer)
+      const src = currentFilePath
+        ? `${relativeBase}/${fileName}`.replace(/\\/g, '/')
+        : `file://${fullPath.replace(/\\/g, '/')}`
+      return { src, fullPath }
+    } catch (err) {
+      console.error('image:save error:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('export:pdf', async (_event, currentFilePath: string | null) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+      if (!win) return null
+
+      const defaultName = currentFilePath
+        ? basename(currentFilePath).replace(/\.(md|markdown|txt)$/i, '.pdf')
+        : 'untitled.pdf'
+      const result = await dialog.showSaveDialog(win, {
+        title: '导出为 PDF',
+        defaultPath: defaultName,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      })
+      if (result.canceled || !result.filePath) return null
+
+      const pdfBuffer = await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize: 'A4',
+        margins: { marginType: 'default' }
+      })
+      await writeFile(result.filePath, pdfBuffer)
+      return result.filePath
+    } catch (err) {
+      console.error('export:pdf error:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('export:html', async (_event, args: { html: string; filePath: string | null }) => {
+    try {
+      const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+      const defaultName = args.filePath
+        ? basename(args.filePath).replace(/\.(md|markdown|txt)$/i, '.html')
+        : 'untitled.html'
+      const options: Electron.SaveDialogOptions = {
+        title: '导出为 HTML',
+        defaultPath: defaultName,
+        filters: [{ name: 'HTML', extensions: ['html', 'htm'] }]
+      }
+      const result = win
+        ? await dialog.showSaveDialog(win, options)
+        : await dialog.showSaveDialog(options)
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, args.html, 'utf-8')
+      return result.filePath
+    } catch (err) {
+      console.error('export:html error:', err)
+      return null
     }
   })
 

@@ -15,6 +15,9 @@ import Link from '@tiptap/extension-link'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
 import { Markdown } from 'tiptap-markdown'
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { MathInline } from '../extensions/MathInline'
@@ -23,20 +26,70 @@ import { MermaidBlock } from '../extensions/MermaidBlock'
 
 const lowlight = createLowlight(common)
 
+const HeadingIds = Extension.create({
+  name: 'headingIds',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('headingIds'),
+        props: {
+          decorations(state) {
+            const decorations: Decoration[] = []
+            let counter = 0
+            state.doc.descendants((node, pos) => {
+              if (node.type.name === 'heading') {
+                counter++
+                decorations.push(
+                  Decoration.node(pos, pos + node.nodeSize, { id: `heading-${counter}` })
+                )
+              }
+            })
+            return DecorationSet.create(state.doc, decorations)
+          }
+        }
+      })
+    ]
+  }
+})
+
 interface EditorProps {
   content: string
   onChange: (content: string) => void
   onSave: () => void
   onEditorReady?: (editor: TiptapEditor) => void
   viewMode: 'edit' | 'split'
+  currentFilePath?: string | null
 }
 
-export default function Editor({ content, onChange, onSave, onEditorReady, viewMode }: EditorProps) {
+const IMAGE_MIME_EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/bmp': 'bmp',
+  'image/svg+xml': 'svg'
+}
+
+async function persistImageBlob(
+  blob: Blob,
+  currentFilePath: string | null
+): Promise<string | null> {
+  const ext = IMAGE_MIME_EXT[blob.type] || 'png'
+  const buffer = new Uint8Array(await blob.arrayBuffer())
+  const result = await window.api.saveImage(buffer, ext, currentFilePath)
+  return result?.src ?? null
+}
+
+export default function Editor({ content, onChange, onSave, onEditorReady, viewMode, currentFilePath = null }: EditorProps) {
+  const currentFilePathRef = useRef<string | null>(currentFilePath)
+  useEffect(() => { currentFilePathRef.current = currentFilePath }, [currentFilePath])
   const [sourceContent, setSourceContent] = useState(content)
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 })
   const sourceRef = useRef<HTMLTextAreaElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const isScrollingRef = useRef(false)
+  const lastEmittedRef = useRef<string>(content)
 
   const editor = useEditor({
     extensions: [
@@ -66,11 +119,13 @@ export default function Editor({ content, onChange, onSave, onEditorReady, viewM
       }),
       MathInline,
       MathBlock,
-      MermaidBlock
+      MermaidBlock,
+      HeadingIds
     ],
     content,
     onUpdate: ({ editor }) => {
       const markdown = editor.storage.markdown.getMarkdown()
+      lastEmittedRef.current = markdown
       onChange(markdown)
       setSourceContent(markdown)
     },
@@ -85,6 +140,38 @@ export default function Editor({ content, onChange, onSave, onEditorReady, viewM
           return true
         }
         return false
+      },
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items
+        if (!items) return false
+        const imageItems = Array.from(items).filter(i => i.type.startsWith('image/'))
+        if (imageItems.length === 0) return false
+        event.preventDefault()
+        imageItems.forEach(item => {
+          const file = item.getAsFile()
+          if (!file) return
+          persistImageBlob(file, currentFilePathRef.current).then(src => {
+            if (src) {
+              editor?.chain().focus().setImage({ src }).run()
+            }
+          })
+        })
+        return true
+      },
+      handleDrop: (view, event) => {
+        const files = event.dataTransfer?.files
+        if (!files || files.length === 0) return false
+        const images = Array.from(files).filter(f => f.type.startsWith('image/'))
+        if (images.length === 0) return false
+        event.preventDefault()
+        images.forEach(file => {
+          persistImageBlob(file, currentFilePathRef.current).then(src => {
+            if (src) {
+              editor?.chain().focus().setImage({ src }).run()
+            }
+          })
+        })
+        return true
       }
     }
   })
@@ -96,13 +183,18 @@ export default function Editor({ content, onChange, onSave, onEditorReady, viewM
   }, [editor, onEditorReady])
 
   useEffect(() => {
-    if (editor) {
-      const currentMarkdown = editor.storage.markdown.getMarkdown()
-      if (currentMarkdown !== content) {
-        editor.commands.setContent(content)
-        setSourceContent(content)
-      }
-    }
+    if (!editor) return
+    if (content === lastEmittedRef.current) return
+    const { from, to } = editor.state.selection
+    editor.commands.setContent(content, false)
+    lastEmittedRef.current = editor.storage.markdown.getMarkdown()
+    setSourceContent(content)
+    const docSize = editor.state.doc.content.size
+    const safeFrom = Math.min(from, docSize)
+    const safeTo = Math.min(to, docSize)
+    try {
+      editor.commands.setTextSelection({ from: safeFrom, to: safeTo })
+    } catch {}
   }, [content, editor])
 
   const handleSourceChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
