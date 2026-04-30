@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { DirNode } from '../../../preload/index.d'
 
 interface SidebarProps {
@@ -77,10 +77,30 @@ function TreeNode({ node, onSelect, currentPath, level }: TreeNodeProps) {
   )
 }
 
+function filterTree(nodes: DirNode[], query: string): DirNode[] {
+  const q = query.toLowerCase()
+  return nodes.reduce<DirNode[]>((acc, node) => {
+    if (node.type === 'file') {
+      if (node.name.toLowerCase().includes(q)) acc.push(node)
+    } else {
+      const filteredChildren = filterTree(node.children, query)
+      if (filteredChildren.length > 0 || node.name.toLowerCase().includes(q)) {
+        acc.push({ ...node, children: filteredChildren })
+      }
+    }
+    return acc
+  }, [])
+}
+
 export default function Sidebar({ dirTree, rootDir, onOpenFolder, onFileSelect, currentFilePath, width, headings }: SidebarProps) {
   const [activeTab, setActiveTab] = useState('explorer')
   const [searchQuery, setSearchQuery] = useState('')
   const [rootExpanded, setRootExpanded] = useState(true)
+
+  const visibleTree = useMemo(() => {
+    if (!searchQuery.trim()) return dirTree
+    return filterTree(dirTree, searchQuery.trim())
+  }, [dirTree, searchQuery])
 
   return (
     <div className="sidebar" style={{ width, minWidth: width }}>
@@ -139,7 +159,7 @@ export default function Sidebar({ dirTree, rootDir, onOpenFolder, onFileSelect, 
                 </div>
                 {rootExpanded && (
                   <div className="dir-children">
-                    {dirTree.map(node => (
+                    {visibleTree.map(node => (
                       <TreeNode
                         key={node.path}
                         node={node}

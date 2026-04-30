@@ -4,7 +4,7 @@ interface SearchPanelProps {
   width: number
   content: string
   onFileSelect?: (path: string) => void
-  onReplace?: (original: string, replacement: string) => void
+  onReplace?: (pattern: string, flags: string, replacement: string) => void
   onNavigateToLine?: (lineNumber: number) => void
 }
 
@@ -156,8 +156,7 @@ export default function SearchPanel({
         flags += 'i'
       }
 
-      const regex = new RegExp(pattern, flags)
-      onReplace(searchQuery, replaceQuery)
+      onReplace(pattern, flags, replaceQuery)
     } catch (error) {
       console.error('Replace failed:', error)
     }

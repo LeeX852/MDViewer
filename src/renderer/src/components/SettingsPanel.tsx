@@ -1,9 +1,31 @@
 import { useState } from 'react'
 
+interface AppSettings {
+  language: string
+  encoding: string
+  autoSave: boolean
+  autoSaveInterval: number
+  startupMode: 'welcome' | 'lastFile' | 'blank'
+  fileAssociation: boolean
+  theme: 'dark' | 'light'
+  fontFamily: string
+  editorFontSize: number
+  uiFontSize: number
+  lineHeight: number
+  sidebarPosition: 'left' | 'right'
+  tabSize: 2 | 4
+  wordWrap: boolean
+  showLineNumbers: boolean
+  spellCheck: boolean
+  syntaxHighlight: boolean
+}
+
 interface SettingsPanelProps {
   theme: 'dark' | 'light'
   onThemeChange: (theme: 'dark' | 'light') => void
   onClose: () => void
+  settings: AppSettings
+  onSettingsChange: (settings: AppSettings) => void
 }
 
 type SettingsCategory = 'general' | 'appearance' | 'editor' | 'shortcuts' | 'about'
@@ -139,45 +161,41 @@ const Icons = {
   ),
 }
 
-export default function SettingsPanel({ theme, onThemeChange, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange }: SettingsPanelProps) {
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>('general')
 
-  // General settings state
-  const [language, setLanguage] = useState('zh-CN')
-  const [encoding, setEncoding] = useState('UTF-8')
-  const [autoSave, setAutoSave] = useState(true)
-  const [startupMode, setStartupMode] = useState<'welcome' | 'lastFile' | 'blank'>('welcome')
-  const [fileAssociation, setFileAssociation] = useState(true)
+  const [language, setLanguage] = useState(initialSettings.language)
+  const [encoding, setEncoding] = useState(initialSettings.encoding)
+  const [autoSave, setAutoSave] = useState(initialSettings.autoSave)
+  const [startupMode, setStartupMode] = useState(initialSettings.startupMode)
+  const [fileAssociation, setFileAssociation] = useState(initialSettings.fileAssociation)
 
-  // Appearance settings state
-  const [fontFamily, setFontFamily] = useState('system')
-  const [editorFontSize, setEditorFontSize] = useState(14)
-  const [uiFontSize, setUiFontSize] = useState(14)
-  const [lineHeight, setLineHeight] = useState(1.6)
-  const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left')
+  const [fontFamily, setFontFamily] = useState(initialSettings.fontFamily)
+  const [editorFontSize, setEditorFontSize] = useState(initialSettings.editorFontSize)
+  const [uiFontSize, setUiFontSize] = useState(initialSettings.uiFontSize)
+  const [lineHeight, setLineHeight] = useState(initialSettings.lineHeight)
+  const [sidebarPosition, setSidebarPosition] = useState(initialSettings.sidebarPosition)
 
-  // Editor settings state
-  const [tabSize, setTabSize] = useState<2 | 4>(2)
-  const [wordWrap, setWordWrap] = useState(true)
-  const [showLineNumbers, setShowLineNumbers] = useState(true)
+  const [tabSize, setTabSize] = useState(initialSettings.tabSize)
+  const [wordWrap, setWordWrap] = useState(initialSettings.wordWrap)
+  const [showLineNumbers, setShowLineNumbers] = useState(initialSettings.showLineNumbers)
   const [indentGuides, setIndentGuides] = useState(true)
-  const [spellCheck, setSpellCheck] = useState(false)
-  const [syntaxHighlight, setSyntaxHighlight] = useState(true)
+  const [spellCheck, setSpellCheck] = useState(initialSettings.spellCheck)
+  const [syntaxHighlight, setSyntaxHighlight] = useState(initialSettings.syntaxHighlight)
 
   const [shortcutSearch, setShortcutSearch] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLang = e.target.value
-    setLanguage(newLang)
-    console.log(`[Settings] Language changed to ${newLang}. Restart required to apply changes.`)
-    alert('语言设置已更改，重启应用后生效')
+    setLanguage(e.target.value)
   }
 
-  const handleSaveSettings = () => {
-    const settings = {
+  const handleSaveSettings = async () => {
+    const newSettings: AppSettings = {
       language,
       encoding,
       autoSave,
+      autoSaveInterval: initialSettings.autoSaveInterval,
       startupMode,
       fileAssociation,
       fontFamily,
@@ -188,13 +206,14 @@ export default function SettingsPanel({ theme, onThemeChange, onClose }: Setting
       tabSize,
       wordWrap,
       showLineNumbers,
-      indentGuides,
       spellCheck,
       syntaxHighlight,
-      theme,
+      theme
     }
-    console.log('[Settings] Saving settings:', settings)
-    alert('设置已保存（控制台查看详情）')
+    await window.api.settings.save(newSettings)
+    onSettingsChange(newSettings)
+    setSaveStatus('saved')
+    setTimeout(() => setSaveStatus('idle'), 2000)
   }
 
   const categories = [
@@ -665,7 +684,11 @@ export default function SettingsPanel({ theme, onThemeChange, onClose }: Setting
       </div>
 
       {showSaveButton && (
-        <button className="settings-save-fab" onClick={handleSaveSettings} title="保存设置">
+        <button
+          className={`settings-save-fab ${saveStatus === 'saved' ? 'saved' : ''}`}
+          onClick={handleSaveSettings}
+          title={saveStatus === 'saved' ? '已保存' : '保存设置'}
+        >
           {Icons.check}
         </button>
       )}

@@ -50,8 +50,32 @@ const api = {
   minimizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:minimize'),
   maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:maximize'),
   closeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:close'),
+  forceCloseWindow: (): Promise<boolean> => ipcRenderer.invoke('window:force-close'),
   isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:is-maximized'),
+  confirmUnsaved: (fileName?: string): Promise<'save' | 'discard' | 'cancel'> =>
+    ipcRenderer.invoke('dialog:confirm-unsaved', fileName),
+  onRequestClose: (callback: () => void) => {
+    ipcRenderer.on('app:request-close', callback)
+    return () => ipcRenderer.removeListener('app:request-close', callback)
+  },
   showAbout: (): Promise<boolean> => ipcRenderer.invoke('dialog:about'),
+  saveImage: (data: Uint8Array, extension: string, currentFilePath: string | null) =>
+    ipcRenderer.invoke('image:save', { data: Array.from(data), extension, currentFilePath }),
+  exportPDF: (filePath: string | null): Promise<string | null> =>
+    ipcRenderer.invoke('export:pdf', filePath),
+  exportHTML: (html: string, filePath: string | null): Promise<string | null> =>
+    ipcRenderer.invoke('export:html', { html, filePath }),
+  settings: {
+    load: () => ipcRenderer.invoke('settings:load'),
+    save: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:save', settings)
+  },
+  trash: {
+    list: () => ipcRenderer.invoke('trash:list'),
+    moveToTrash: (filePath: string) => ipcRenderer.invoke('trash:move-to-trash', filePath),
+    restore: (id: string) => ipcRenderer.invoke('trash:restore', id),
+    permanentDelete: (id: string) => ipcRenderer.invoke('trash:permanent-delete', id),
+    empty: () => ipcRenderer.invoke('trash:empty')
+  },
   snapshot: {
     save: (filePath: string, content: string, label?: string) =>
       ipcRenderer.invoke('snapshot:save', filePath, content, label),
