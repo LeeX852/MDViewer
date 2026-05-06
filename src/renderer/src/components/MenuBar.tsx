@@ -368,7 +368,7 @@ export default function MenuBar({
           <div className="toolbar-divider" />
           <button
             className="toolbar-btn"
-            onClick={onToggleTheme}
+            onClick={() => onToggleTheme()}
             title={theme === 'dark' ? '亮色主题' : '暗色主题'}
           >
             {theme === 'dark' ? (

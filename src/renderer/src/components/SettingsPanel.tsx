@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface AppSettings {
   language: string
@@ -26,6 +26,7 @@ interface SettingsPanelProps {
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
+  initialCategory?: SettingsCategory
 }
 
 type SettingsCategory = 'general' | 'appearance' | 'editor' | 'shortcuts' | 'about'
@@ -163,8 +164,12 @@ const Icons = {
   ),
 }
 
-export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange }: SettingsPanelProps) {
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>('general')
+export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange, initialCategory = 'general' }: SettingsPanelProps) {
+  const [activeCategory, setActiveCategory] = useState<SettingsCategory>(initialCategory)
+
+  useEffect(() => {
+    setActiveCategory(initialCategory)
+  }, [initialCategory])
 
   const [language, setLanguage] = useState(initialSettings.language)
   const [encoding, setEncoding] = useState(initialSettings.encoding)
@@ -599,7 +604,7 @@ export default function SettingsPanel({ theme, onThemeChange, onClose, settings:
           </svg>
         </div>
         <h3 className="settings-about-title">MDViewer</h3>
-        <span className="settings-about-version">版本 0.1.0</span>
+        <span className="settings-about-version">版本 1.2.0</span>
         <p className="settings-about-description">
           一款类 Typora 风格的 Markdown 编辑器，基于 Electron + React + Tiptap 构建。
           简洁优雅的写作体验，让 Markdown 编辑更加高效愉悦。

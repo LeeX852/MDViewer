@@ -65,6 +65,7 @@ export default function App() {
 
   const [editorInstance, setEditorInstance] = useState<TiptapEditor | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [settingsCategory, setSettingsCategory] = useState<'general' | 'appearance' | 'editor' | 'shortcuts' | 'about'>('general')
   const [viewMode, setViewMode] = useState<'edit' | 'split'>('edit')
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
 
@@ -316,17 +317,22 @@ ${bodyHTML}
       const choice = await window.api.confirmUnsaved(name)
       if (choice === 'cancel') return
       if (choice === 'save') {
-        if (target.id !== activeTabId) activateTab(target.id)
-        const ok = await handleSave()
-        if (!ok) return
+        // Save directly from target tab's data to avoid stale refs
+        if (target.filePath) {
+          const ok = await ipc.saveFile(target.filePath, target.content)
+          if (!ok) return
+        } else {
+          const savedPath = await ipc.saveFileAs(target.content)
+          if (!savedPath) return
+        }
       }
     }
     closeTab(id)
-  }, [tabs, activeTabId, activateTab, closeTab, handleSave])
+  }, [tabs, closeTab])
 
-  const handleToggleTheme = useCallback(() => {
+  const handleToggleTheme = useCallback((theme?: 'dark' | 'light') => {
     setTheme(prev => {
-      const next: 'dark' | 'light' = prev === 'dark' ? 'light' : 'dark'
+      const next: 'dark' | 'light' = (theme === 'dark' || theme === 'light') ? theme : (prev === 'dark' ? 'light' : 'dark')
       setAppSettings(s => {
         const updated: AppSettings = { ...s, theme: next }
         window.api.settings.save(updated).catch(() => {})
@@ -352,18 +358,22 @@ ${bodyHTML}
         const name = t.filePath
           ? (t.filePath.split(/[/\\]/).pop() ?? '未命名')
           : '未命名'
-        activateTab(t.id)
         const choice = await window.api.confirmUnsaved(name)
         if (choice === 'cancel') return
         if (choice === 'save') {
-          const ok = await handleSave()
-          if (!ok) return
+          if (t.filePath) {
+            const ok = await ipc.saveFile(t.filePath, t.content)
+            if (!ok) return
+          } else {
+            const savedPath = await ipc.saveFileAs(t.content)
+            if (!savedPath) return
+          }
         }
       }
       window.api.forceCloseWindow()
     })
     return off
-  }, [activateTab, handleSave])
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -540,8 +550,22 @@ ${bodyHTML}
             <IconRail
               activeView={activeView}
               onViewChange={handleViewChange}
-              onOpenSettings={() => setShowSettings(true)}
-              onOpenHelp={() => setShowSettings(true)}
+              onOpenSettings={() => {
+                if (showSettings) {
+                  setShowSettings(false)
+                  return
+                }
+                setSettingsCategory('general')
+                setShowSettings(true)
+              }}
+              onOpenHelp={() => {
+                if (showSettings && settingsCategory === 'about') {
+                  setShowSettings(false)
+                  return
+                }
+                setSettingsCategory('about')
+                setShowSettings(true)
+              }}
             />
           )}
           {showSidebar && (
@@ -557,6 +581,7 @@ ${bodyHTML}
               onClose={() => setShowSettings(false)}
               settings={appSettings}
               onSettingsChange={handleSettingsChange}
+              initialCategory={settingsCategory}
             />
           ) : (
             <div className="editor-area">
