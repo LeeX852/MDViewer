@@ -26,6 +26,7 @@ interface SettingsPanelProps {
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
+  initialCategory?: SettingsCategory
 }
 
 type SettingsCategory = 'general' | 'appearance' | 'editor' | 'shortcuts' | 'about'
@@ -163,8 +164,8 @@ const Icons = {
   ),
 }
 
-export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange }: SettingsPanelProps) {
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>('general')
+export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange, initialCategory = 'general' }: SettingsPanelProps) {
+  const [activeCategory, setActiveCategory] = useState<SettingsCategory>(initialCategory)
 
   const [language, setLanguage] = useState(initialSettings.language)
   const [encoding, setEncoding] = useState(initialSettings.encoding)

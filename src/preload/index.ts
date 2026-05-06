@@ -35,7 +35,7 @@ const api = {
   },
   readFile: (filePath: string): Promise<string | null> =>
     ipcRenderer.invoke('file:read', filePath),
-  readDirTree: (dirPath: string): Promise<any[]> =>
+  readDirTree: (dirPath: string): Promise<DirNode[]> =>
     ipcRenderer.invoke('dir:read-tree', dirPath),
   openFolder: (): Promise<string | null> => {
     console.log('[Preload] openFolder called')
