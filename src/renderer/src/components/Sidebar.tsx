@@ -30,9 +30,9 @@ function TreeNode({ node, onSelect, currentPath, level }: TreeNodeProps) {
         onClick={() => onSelect(node.path)}
         style={{ paddingLeft }}
       >
-        <svg className="tree-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
+        <svg className="tree-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+          <path d="M14 2v4a1 1 0 0 0 1 1h3" />
         </svg>
         <span className="file-name">{node.name}</span>
       </div>
@@ -52,11 +52,13 @@ function TreeNode({ node, onSelect, currentPath, level }: TreeNodeProps) {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         >
-          <polyline points="9 18 15 12 9 6" />
+          <path d="m9 18 6-6-6-6" />
         </svg>
-        <svg className="tree-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        <svg className="tree-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
         </svg>
         <span className="dir-name">{node.name}</span>
       </div>
@@ -122,9 +124,9 @@ export default function Sidebar({ dirTree, rootDir, onOpenFolder, onFileSelect, 
       {activeTab === 'explorer' && (
         <>
           <div className="sidebar-search">
-            <svg className="sidebar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="sidebar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
+              <path d="m21 21-4.3-4.3" />
             </svg>
             <input
               type="text"
@@ -149,11 +151,13 @@ export default function Sidebar({ dirTree, rootDir, onOpenFolder, onFileSelect, 
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <polyline points="9 18 15 12 9 6" />
+                    <path d="m9 18 6-6-6-6" />
                   </svg>
-                  <svg className="tree-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  <svg className="tree-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
                   </svg>
                   <span className="dir-name">{rootDir.split(/[/\\]/).pop()}</span>
                 </div>
@@ -174,8 +178,10 @@ export default function Sidebar({ dirTree, rootDir, onOpenFolder, onFileSelect, 
             ) : (
               <div className="sidebar-empty">
                 <button className="open-folder-btn" onClick={onOpenFolder}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                    <path d="M12 10v6" />
+                    <path d="M9 13h6" />
                   </svg>
                   打开文件夹
                 </button>
