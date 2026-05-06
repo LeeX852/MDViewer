@@ -551,10 +551,18 @@ ${bodyHTML}
               activeView={activeView}
               onViewChange={handleViewChange}
               onOpenSettings={() => {
+                if (showSettings) {
+                  setShowSettings(false)
+                  return
+                }
                 setSettingsCategory('general')
                 setShowSettings(true)
               }}
               onOpenHelp={() => {
+                if (showSettings && settingsCategory === 'about') {
+                  setShowSettings(false)
+                  return
+                }
                 setSettingsCategory('about')
                 setShowSettings(true)
               }}

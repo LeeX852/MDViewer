@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface AppSettings {
   language: string
@@ -166,6 +166,10 @@ const Icons = {
 
 export default function SettingsPanel({ theme, onThemeChange, onClose, settings: initialSettings, onSettingsChange, initialCategory = 'general' }: SettingsPanelProps) {
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>(initialCategory)
+
+  useEffect(() => {
+    setActiveCategory(initialCategory)
+  }, [initialCategory])
 
   const [language, setLanguage] = useState(initialSettings.language)
   const [encoding, setEncoding] = useState(initialSettings.encoding)
