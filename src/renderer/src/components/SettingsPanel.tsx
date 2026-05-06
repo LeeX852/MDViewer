@@ -599,7 +599,7 @@ export default function SettingsPanel({ theme, onThemeChange, onClose, settings:
           </svg>
         </div>
         <h3 className="settings-about-title">MDViewer</h3>
-        <span className="settings-about-version">版本 0.1.0</span>
+        <span className="settings-about-version">版本 1.2.0</span>
         <p className="settings-about-description">
           一款类 Typora 风格的 Markdown 编辑器，基于 Electron + React + Tiptap 构建。
           简洁优雅的写作体验，让 Markdown 编辑更加高效愉悦。
