@@ -332,7 +332,7 @@ ${bodyHTML}
 
   const handleToggleTheme = useCallback((theme?: 'dark' | 'light') => {
     setTheme(prev => {
-      const next: 'dark' | 'light' = theme ?? (prev === 'dark' ? 'light' : 'dark')
+      const next: 'dark' | 'light' = (theme === 'dark' || theme === 'light') ? theme : (prev === 'dark' ? 'light' : 'dark')
       setAppSettings(s => {
         const updated: AppSettings = { ...s, theme: next }
         window.api.settings.save(updated).catch(() => {})
