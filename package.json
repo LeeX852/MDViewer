@@ -58,11 +58,13 @@
   "build": {
     "appId": "com.mdviewer.app",
     "productName": "MDViewer",
+    "icon": "resources/icon.ico",
     "directories": {
       "output": "dist"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "resources/**/*"
     ],
     "win": {
       "target": [
