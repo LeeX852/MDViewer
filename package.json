@@ -1,6 +1,6 @@
 {
   "name": "mdviewer",
-  "version": "1.3.0",
+  "version": "1.2.1",
   "description": "A Typora-like Markdown editor built with Electron + React",
   "author": "LeeX",
   "license": "MIT",
@@ -58,7 +58,7 @@
   "build": {
     "appId": "com.mdviewer.app",
     "productName": "MDViewer",
-    "icon": "resources/icon.ico",
+    "icon": "resources/icon_v3.png",
     "directories": {
       "output": "dist"
     },
